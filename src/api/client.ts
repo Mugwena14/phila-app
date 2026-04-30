@@ -7,7 +7,8 @@ import axios, {
 import * as SecureStore from 'expo-secure-store'
 
 
-const BASE_URL = 'http://146.231.29.171:8000/api/v1'
+// const BASE_URL = 'http://146.231.29.171:8000/api/v1'
+const BASE_URL = 'http://146.231.127.33:8000/api/v1'
 
 const TOKEN_KEY = 'phila_token'
 

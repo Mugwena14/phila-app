@@ -18,7 +18,7 @@ import { RootStackParamList, User } from '../../types/index'
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>
 
-export default function LoginScreen({ navigation }: Props) {
+export default function LoginScreen({ navigation }: any) {
   const { colors } = useThemeStore()
   const { setAuth } = useAuthStore()
 

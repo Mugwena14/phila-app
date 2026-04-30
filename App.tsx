@@ -13,6 +13,7 @@ import {
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono'
 import * as SplashScreen from 'expo-splash-screen'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { ThemeProvider, useThemeStore } from './src/store/themeStore'
 import { AuthProvider } from './src/store/authStore'
 import Navigation from './src/navigation/Index'
@@ -52,10 +53,12 @@ function AppInner() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppInner />
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppInner />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   )
 }

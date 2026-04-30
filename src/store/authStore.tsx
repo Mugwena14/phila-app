@@ -41,6 +41,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (stored !== null) {
           setToken(stored)
           setIsAuthenticated(true)
+          // Fetch real user data from backend
+          try {
+            const { authApi } = await import('../api/auth')
+            const userData = await authApi.me()
+            setUser(userData)
+          } catch {
+            // Token might be expired — auth state stays true
+            // so navigation doesn't break, logout on next 401
+          }
         }
       } catch {
         // SecureStore unavailable on first launch

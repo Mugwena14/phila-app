@@ -9,17 +9,52 @@ export interface User {
   language_pref: string
 }
 
-export type RootStackParamList = {
-  Login: undefined
-  Register: undefined
-  MainTabs: undefined
+export interface Doctor {
+  id: string
+  user_id: string
+  specialty: string
+  bio: string | null
+  years_experience: number
+  qualification: string | null
+  practice_name: string
+  address: string
+  city: string
+  province: string
+  consultation_fee: number
+  slot_duration_minutes: number
+  medical_aids: string[]
+  languages: string[]
+  is_active: boolean
+  is_verified: boolean
+  rating: number
+  total_reviews: number
+  created_at: string
 }
 
-export type PatientTabParamList = {
-  Home: undefined
-  Search: undefined
-  Appointments: undefined
-  Profile: undefined
+export interface Slot {
+  id: string
+  doctor_id: string
+  date: string
+  start_time: string
+  end_time: string
+  status: 'available' | 'booked' | 'blocked'
+}
+
+export interface Booking {
+  id: string
+  patient_id: string
+  doctor_id: string
+  slot_id: string
+  status: string
+  reason: string | null
+  risk_score: string
+  created_at: string
+  slot_date?: string
+  slot_start_time?: string
+  slot_end_time?: string
+  doctor_name?: string
+  practice_name?: string
+  specialty?: string
 }
 
 export interface TokenResponse {
@@ -27,6 +62,18 @@ export interface TokenResponse {
   token_type: string
 }
 
-export interface ApiError {
-  detail: string
+export type RootStackParamList = {
+  Login: undefined
+  Register: undefined
+  MainTabs: undefined
+  DoctorProfile: { doctorId: string }
+  BookingConfirm: { slotId: string; doctor: Doctor }
+  BookingSuccess: { booking: Booking }
+}
+
+export type PatientTabParamList = {
+  Home: undefined
+  Search: undefined
+  Appointments: undefined
+  Profile: undefined
 }
