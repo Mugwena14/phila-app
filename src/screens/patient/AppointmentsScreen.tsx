@@ -214,17 +214,46 @@ export default function AppointmentsScreen() {
                           {booking.specialty}
                         </Text>
                       </View>
-                      <View style={{
-                        backgroundColor: statusStyle.bg,
-                        borderRadius: radius.pill,
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        borderWidth: 1,
-                        borderColor: statusStyle.border,
-                      }}>
-                        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 10, color: statusStyle.text }}>
-                          {booking.status.toUpperCase()}
-                        </Text>
+                      {/* Status + intake badges stacked */}
+                      <View style={{ alignItems: 'flex-end', gap: 5 }}>
+                        <View style={{
+                          backgroundColor: statusStyle.bg,
+                          borderRadius: radius.pill,
+                          paddingHorizontal: 10,
+                          paddingVertical: 4,
+                          borderWidth: 1,
+                          borderColor: statusStyle.border,
+                        }}>
+                          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 10, color: statusStyle.text }}>
+                            {booking.status.toUpperCase()}
+                          </Text>
+                        </View>
+
+                        {/* Intake status badge */}
+                        {booking.intake_status && (
+                          <View style={{
+                            backgroundColor: booking.intake_status === 'complete'
+                              ? colors.primaryBg
+                              : colors.bgElevated,
+                            borderRadius: radius.pill,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderWidth: 1,
+                            borderColor: booking.intake_status === 'complete'
+                              ? colors.primaryBorder
+                              : colors.border,
+                          }}>
+                            <Text style={{
+                              fontFamily: 'Syne_700Bold',
+                              fontSize: 9,
+                              color: booking.intake_status === 'complete'
+                                ? colors.primary
+                                : colors.textFaint,
+                            }}>
+                              {booking.intake_status === 'complete' ? '✓ INTAKE DONE' : 'INTAKE PENDING'}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
 
@@ -250,6 +279,26 @@ export default function AppointmentsScreen() {
                         <Ionicons name="chatbubble-outline" size={14} color={colors.textMuted} />
                         <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, flex: 1 }} numberOfLines={2}>
                           {booking.reason}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* WhatsApp intake note — only show if pending and confirmed */}
+                    {booking.status === 'confirmed' && booking.intake_status === 'pending' && (
+                      <View style={{
+                        backgroundColor: '#128C7E10',
+                        borderRadius: radius.md,
+                        padding: spacing.sm,
+                        marginBottom: spacing.md,
+                        flexDirection: 'row',
+                        gap: 6,
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: '#128C7E25',
+                      }}>
+                        <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
+                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, flex: 1 }}>
+                          Check WhatsApp — our assistant has questions for your doctor.
                         </Text>
                       </View>
                     )}
@@ -292,7 +341,6 @@ export default function AppointmentsScreen() {
                             opacity: cancelling === booking.id ? 0.5 : 1,
                           }}
                         >
-                          
                           <Ionicons name="close-circle-outline" size={15} color={colors.coral} />
                           <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.coral }}>
                             {cancelling === booking.id ? 'Cancelling...' : 'Cancel appointment'}

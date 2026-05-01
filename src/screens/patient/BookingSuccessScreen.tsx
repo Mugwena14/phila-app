@@ -72,11 +72,26 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
         </View>
 
         {/* WhatsApp note */}
-        <View style={{ backgroundColor: '#128C7E15', borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: '#128C7E30', flexDirection: 'row', gap: spacing.sm, alignItems: 'center', marginBottom: spacing.xxl }}>
-          <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
-          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, flex: 1, lineHeight: 20 }}>
-            Our assistant will reach out via WhatsApp to prepare your doctor for the visit.
-          </Text>
+        <View style={{
+          backgroundColor: '#128C7E15',
+          borderRadius: radius.lg,
+          padding: spacing.md,
+          borderWidth: 1,
+          borderColor: '#128C7E30',
+          flexDirection: 'row',
+          gap: spacing.sm,
+          alignItems: 'flex-start',
+          marginBottom: spacing.xxl,
+        }}>
+          <Ionicons name="logo-whatsapp" size={22} color="#25D366" style={{ marginTop: 1 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.text, marginBottom: 4 }}>
+              Intake assistant incoming
+            </Text>
+            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, lineHeight: 20 }}>
+              Our AI assistant will WhatsApp you shortly with a few quick questions to prepare your doctor for the visit.
+            </Text>
+          </View>
         </View>
 
         {/* Primary CTA */}

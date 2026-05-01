@@ -55,6 +55,9 @@ export interface Booking {
   doctor_name?: string
   practice_name?: string
   specialty?: string
+  intake_status?: string
+  intake_brief?: any
+  crisis_flag?: string
 }
 
 export interface TokenResponse {
