@@ -26,8 +26,12 @@ export const authApi = {
     return response.data
   },
 
-  me: async (): Promise<User> => {
-    const response = await apiClient.get<User>('/auth/me')
+  // ── Accept optional token so we can call /me right after login ──
+  // before the token is stored in the axios interceptor
+  me: async (token?: string): Promise<User> => {
+    const response = await apiClient.get<User>('/auth/me', {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
     return response.data
   },
 }

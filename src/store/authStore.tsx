@@ -23,36 +23,49 @@ const defaultAuth: AuthContextType = {
 const AuthContext = createContext<AuthContextType>(defaultAuth)
 
 const TOKEN_KEY = 'phila_token'
+const USER_KEY  = 'phila_user'   // ← persist user so role survives restart
 
 interface AuthProviderProps {
   children: React.ReactNode
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(null)
+  const [user, setUser]                     = useState<User | null>(null)
+  const [token, setToken]                   = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [isLoading, setIsLoading]           = useState<boolean>(true)
 
   useEffect(() => {
     const loadFromStorage = async (): Promise<void> => {
       try {
-        const stored = await SecureStore.getItemAsync(TOKEN_KEY)
-        if (stored !== null) {
-          setToken(stored)
+        const [storedToken, storedUser] = await Promise.all([
+          SecureStore.getItemAsync(TOKEN_KEY),
+          SecureStore.getItemAsync(USER_KEY),
+        ])
+
+        if (storedToken) {
+          setToken(storedToken)
           setIsAuthenticated(true)
-          // Fetch real user data from backend
+
+          // Restore cached user immediately so role is available
+          if (storedUser) {
+            try { setUser(JSON.parse(storedUser)) } catch {}
+          }
+
+          // Then refresh from backend in background
           try {
             const { authApi } = await import('../api/auth')
-            const userData = await authApi.me()
-            setUser(userData)
+            const freshUser = await authApi.me()
+            setUser(freshUser)
+            // Update cached user with fresh data
+            await SecureStore.setItemAsync(USER_KEY, JSON.stringify(freshUser))
           } catch {
-            // Token might be expired — auth state stays true
-            // so navigation doesn't break, logout on next 401
+            // Token expired or network issue — keep cached user
+            // Navigation will handle 401 on next API call
           }
         }
       } catch {
-        // SecureStore unavailable on first launch
+        // SecureStore unavailable
       } finally {
         setIsLoading(false)
       }
@@ -61,30 +74,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const setAuth = async (newUser: User, newToken: string): Promise<void> => {
-    await SecureStore.setItemAsync(TOKEN_KEY, newToken)
+    await Promise.all([
+      SecureStore.setItemAsync(TOKEN_KEY, newToken),
+      SecureStore.setItemAsync(USER_KEY, JSON.stringify(newUser)),  // ← persist user
+    ])
     setUser(newUser)
     setToken(newToken)
     setIsAuthenticated(true)
   }
 
   const logout = async (): Promise<void> => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY)
+    await Promise.all([
+      SecureStore.deleteItemAsync(TOKEN_KEY),
+      SecureStore.deleteItemAsync(USER_KEY),  // ← clear user on logout
+    ])
     setUser(null)
     setToken(null)
     setIsAuthenticated(false)
   }
 
-  const value: AuthContextType = {
-    user,
-    token,
-    isAuthenticated,
-    isLoading,
-    setAuth,
-    logout,
-  }
-
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, token, isAuthenticated, isLoading, setAuth, logout }}>
       {children}
     </AuthContext.Provider>
   )

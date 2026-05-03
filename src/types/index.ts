@@ -7,6 +7,7 @@ export interface User {
   phone: string
   role: UserRole
   language_pref: string
+  created_at?: string
 }
 
 export interface Doctor {
@@ -69,6 +70,7 @@ export type RootStackParamList = {
   Login: undefined
   Register: undefined
   MainTabs: undefined
+  DoctorTabs: undefined                          // ← doctor navigation root
   DoctorProfile: { doctorId: string }
   BookingConfirm: { slotId: string; doctor: Doctor }
   BookingSuccess: { booking: Booking }
@@ -79,4 +81,18 @@ export type PatientTabParamList = {
   Search: undefined
   Appointments: undefined
   Profile: undefined
+}
+
+export type DoctorTabParamList = {
+  Today: undefined
+  Schedule: undefined
+  Patients: undefined
+  DoctorProfile: undefined
+}
+
+export type WorkingHoursInput = {
+  day_of_week: number
+  is_active: boolean
+  start_time: string
+  end_time: string
 }
