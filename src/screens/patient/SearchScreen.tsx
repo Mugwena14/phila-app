@@ -15,6 +15,7 @@ import { doctorsApi } from '../../api/doctors'
 import { triageApi, TriageResult } from '../../api/triage'
 import { Doctor } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
+import NearbyDoctorsMap from './NearbyDoctorsMap' // ← new component (next step)
 
 const SPECIALTIES = [
   { label: 'Neurology', icon: 'pulse-outline' as const },
@@ -31,8 +32,6 @@ const SPECIALTIES = [
   { label: 'Radiology', icon: 'scan-outline' as const },
 ]
 
-const FILTERS = ['Top rated', 'Near me', 'Available today']
-
 type ActiveTab = 'search' | 'symptoms'
 
 export default function SearchScreen({ navigation, route }: any) {
@@ -41,10 +40,12 @@ export default function SearchScreen({ navigation, route }: any) {
 
   // Search state
   const [query, setQuery] = useState<string>('')
-  const [activeFilter, setActiveFilter] = useState<string>('Top rated')
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [searched, setSearched] = useState<boolean>(false)
+
+  // Map modal state
+  const [mapVisible, setMapVisible] = useState<boolean>(false)
 
   // Triage state
   const [activeTab, setActiveTab] = useState<ActiveTab>('search')
@@ -67,9 +68,14 @@ export default function SearchScreen({ navigation, route }: any) {
     return () => pulse.stop()
   }, [])
 
-  const search = async (overrideQuery?: string): Promise<void> => {
-    const q = overrideQuery ?? query
-    if (q.trim() === '') return
+  // Live search — triggers on every keystroke
+  const search = async (q: string): Promise<void> => {
+    if (q.trim() === '') {
+      setSearched(false)
+      setDoctors([])
+      void loadAll()
+      return
+    }
     setLoading(true)
     setSearched(true)
     try {
@@ -80,6 +86,11 @@ export default function SearchScreen({ navigation, route }: any) {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleQueryChange = (text: string): void => {
+    setQuery(text)
+    void search(text)
   }
 
   const searchBySpecialty = async (specialty: string): Promise<void> => {
@@ -162,10 +173,8 @@ export default function SearchScreen({ navigation, route }: any) {
           Find your doctor
         </Text>
 
-        {/* Tab toggle — Search vs Describe Symptoms */}
+        {/* Tab toggle */}
         <View style={{ flexDirection: 'row', backgroundColor: colors.bgSurface, borderRadius: radius.lg, padding: 4, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border }}>
-
-          {/* Search tab */}
           <TouchableOpacity
             onPress={() => setActiveTab('search')}
             style={{ flex: 1, paddingVertical: 10, borderRadius: radius.md, backgroundColor: activeTab === 'search' ? colors.bgElevated : 'transparent', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
@@ -176,12 +185,10 @@ export default function SearchScreen({ navigation, route }: any) {
             </Text>
           </TouchableOpacity>
 
-          {/* Symptoms tab — with AI icon */}
           <TouchableOpacity
             onPress={() => setActiveTab('symptoms')}
             style={{ flex: 1, paddingVertical: 10, borderRadius: radius.md, backgroundColor: activeTab === 'symptoms' ? colors.primary : 'transparent', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
           >
-            {/* Animated AI icon */}
             <Animated.View style={{ transform: [{ scale: activeTab === 'symptoms' ? pulseAnim : 1 }] }}>
               <Ionicons
                 name="hardware-chip-outline"
@@ -195,56 +202,75 @@ export default function SearchScreen({ navigation, route }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Search input */}
+        {/* ── SEARCH INPUT (full width, live) ── */}
         {activeTab === 'search' && (
           <>
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.bgSurface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: spacing.base, gap: spacing.sm }}>
-                <Ionicons name="search-outline" size={18} color={colors.textFaint} />
-                <TextInput
-                  style={{ flex: 1, color: colors.text, fontFamily: 'DMSans_400Regular', fontSize: 14, paddingVertical: 13 }}
-                  placeholder="Doctor name, specialty, city..."
-                  placeholderTextColor={colors.textFaint}
-                  value={query}
-                  onChangeText={setQuery}
-                  onSubmitEditing={() => void search()}
-                  returnKeyType="search"
-                />
-                {query.length > 0 && (
-                  <TouchableOpacity onPress={clearSearch}>
-                    <Ionicons name="close-circle" size={18} color={colors.textFaint} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <TouchableOpacity
-                onPress={() => void search()}
-                style={{ backgroundColor: colors.primary, borderRadius: radius.lg, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: '#FFFFFF' }}>Search</Text>
-              </TouchableOpacity>
+            {/* Full-width search input */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              backgroundColor: colors.bgSurface,
+              borderRadius: radius.lg,
+              borderWidth: 1,
+              borderColor: colors.borderStrong,
+              paddingHorizontal: spacing.base,
+              gap: spacing.sm,
+              marginBottom: spacing.sm,
+            }}>
+              <Ionicons name="search-outline" size={18} color={colors.textFaint} />
+              <TextInput
+                style={{ flex: 1, color: colors.text, fontFamily: 'DMSans_400Regular', fontSize: 14, paddingVertical: 13 }}
+                placeholder="Doctor name, specialty, city..."
+                placeholderTextColor={colors.textFaint}
+                value={query}
+                onChangeText={handleQueryChange}
+                returnKeyType="search"
+              />
+              {query.length > 0 && (
+                <TouchableOpacity onPress={clearSearch}>
+                  <Ionicons name="close-circle" size={18} color={colors.textFaint} />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Filter chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
-              {FILTERS.map((f) => (
-                <TouchableOpacity
-                  key={f}
-                  onPress={() => setActiveFilter(f)}
-                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: radius.pill, backgroundColor: activeFilter === f ? colors.primary : colors.bgSurface, borderWidth: 1, borderColor: activeFilter === f ? colors.primary : colors.border }}
-                >
-                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 12, color: activeFilter === f ? '#FFFFFF' : colors.textMuted }}>
-                    {f}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {/* Location button — opens map feature */}
+            <TouchableOpacity
+              onPress={() => setMapVisible(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: spacing.sm,
+                backgroundColor: colors.bgSurface,
+                borderRadius: radius.lg,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingHorizontal: spacing.base,
+                paddingVertical: 12,
+              }}
+            >
+              <View style={{
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: colors.primaryBg,
+                borderWidth: 1,
+                borderColor: colors.primaryBorder,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Ionicons name="location-outline" size={15} color={colors.primary} />
+              </View>
+              <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 14, color: colors.textMuted, flex: 1 }}>
+                Find doctors near you...
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+            </TouchableOpacity>
           </>
         )}
 
-        {/* Symptoms input */}
+        {/* ── SYMPTOMS INPUT ── */}
         {activeTab === 'symptoms' && (
           <View>
-            {/* AI agent header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, backgroundColor: colors.primaryBg, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.primaryBorder }}>
               <Animated.View style={{
                 transform: [{ scale: pulseAnim }],
@@ -267,7 +293,6 @@ export default function SearchScreen({ navigation, route }: any) {
               </View>
             </View>
 
-            {/* Symptom text input */}
             <View style={{ backgroundColor: colors.bgSurface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, padding: spacing.base, marginBottom: spacing.sm }}>
               <TextInput
                 style={{ color: colors.text, fontFamily: 'DMSans_400Regular', fontSize: 14, minHeight: 80, textAlignVertical: 'top', lineHeight: 22 }}
@@ -288,9 +313,7 @@ export default function SearchScreen({ navigation, route }: any) {
               {triageLoading ? (
                 <>
                   <ActivityIndicator size="small" color="#FFFFFF" />
-                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: '#FFFFFF' }}>
-                    Analysing symptoms...
-                  </Text>
+                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: '#FFFFFF' }}>Analysing symptoms...</Text>
                 </>
               ) : (
                 <>
@@ -310,7 +333,6 @@ export default function SearchScreen({ navigation, route }: any) {
         {/* ── TRIAGE RESULTS ── */}
         {activeTab === 'symptoms' && (
           <View style={{ paddingHorizontal: spacing.lg }}>
-
             {triageError !== '' && (
               <View style={{ backgroundColor: colors.coralBg, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.coralBorder, marginBottom: spacing.md }}>
                 <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.coral }}>{triageError}</Text>
@@ -319,8 +341,6 @@ export default function SearchScreen({ navigation, route }: any) {
 
             {triageResult && (
               <View style={{ marginBottom: spacing.xl }}>
-
-                {/* Emergency banner */}
                 {triageResult.urgency === 'emergency' && (
                   <View style={{ backgroundColor: colors.coralBg, borderRadius: radius.xl, borderWidth: 1.5, borderColor: colors.coralBorder, padding: spacing.lg, marginBottom: spacing.md }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
@@ -328,12 +348,8 @@ export default function SearchScreen({ navigation, route }: any) {
                         <Ionicons name="warning-outline" size={22} color="#FFFFFF" />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: colors.coral, marginBottom: 2 }}>
-                          Emergency — seek help now
-                        </Text>
-                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>
-                          Do not wait for a booking
-                        </Text>
+                        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: colors.coral, marginBottom: 2 }}>Emergency — seek help now</Text>
+                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>Do not wait for a booking</Text>
                       </View>
                     </View>
                     <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, lineHeight: 20, marginBottom: spacing.md }}>
@@ -352,16 +368,12 @@ export default function SearchScreen({ navigation, route }: any) {
                   </View>
                 )}
 
-                {/* Normal triage result card */}
                 {triageResult.urgency !== 'emergency' && (() => {
                   const urgencyStyle = getUrgencyStyle(triageResult.urgency)
                   return (
                     <View style={{ backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.borderStrong, overflow: 'hidden', marginBottom: spacing.md }}>
-                      {/* Teal top bar */}
                       <View style={{ height: 3, backgroundColor: colors.primary }} />
-
                       <View style={{ padding: spacing.lg }}>
-                        {/* Agent icon + result header */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
                           <Animated.View style={{
                             transform: [{ scale: pulseAnim }],
@@ -377,49 +389,33 @@ export default function SearchScreen({ navigation, route }: any) {
                             <Ionicons name="hardware-chip-outline" size={22} color={colors.primary} />
                           </Animated.View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, marginBottom: 2 }}>
-                              Phila AI recommends
-                            </Text>
-                            <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 20, color: colors.text }}>
-                              {triageResult.specialty}
-                            </Text>
+                            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, marginBottom: 2 }}>Phila AI recommends</Text>
+                            <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 20, color: colors.text }}>{triageResult.specialty}</Text>
                           </View>
                         </View>
 
-                        {/* Urgency badge */}
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
                           <View style={{ backgroundColor: urgencyStyle.bg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: urgencyStyle.border, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: urgencyStyle.text }} />
-                            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 12, color: urgencyStyle.text }}>
-                              {urgencyStyle.label}
-                            </Text>
+                            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 12, color: urgencyStyle.text }}>{urgencyStyle.label}</Text>
                           </View>
                         </View>
 
-                        {/* Reasoning */}
                         <View style={{ backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md }}>
-                          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, lineHeight: 20 }}>
-                            {triageResult.reasoning}
-                          </Text>
+                          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, lineHeight: 20 }}>{triageResult.reasoning}</Text>
                         </View>
 
-                        {/* Urgency explanation */}
                         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: spacing.lg }}>
                           <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} style={{ marginTop: 1 }} />
-                          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, flex: 1, lineHeight: 20 }}>
-                            {triageResult.urgency_explanation}
-                          </Text>
+                          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, flex: 1, lineHeight: 20 }}>{triageResult.urgency_explanation}</Text>
                         </View>
 
-                        {/* CTA — find this specialist */}
                         <TouchableOpacity
                           onPress={() => void searchBySpecialty(triageResult.specialty)}
                           style={{ backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
                         >
                           <Ionicons name="search-outline" size={16} color="#FFFFFF" />
-                          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: '#FFFFFF' }}>
-                            Find a {triageResult.specialty}
-                          </Text>
+                          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: '#FFFFFF' }}>Find a {triageResult.specialty}</Text>
                           <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
                         </TouchableOpacity>
                       </View>
@@ -427,7 +423,6 @@ export default function SearchScreen({ navigation, route }: any) {
                   )
                 })()}
 
-                {/* Disclaimer */}
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingHorizontal: spacing.sm }}>
                   <Ionicons name="shield-checkmark-outline" size={14} color={colors.textFaint} style={{ marginTop: 1 }} />
                   <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textFaint, flex: 1, lineHeight: 17 }}>
@@ -443,7 +438,7 @@ export default function SearchScreen({ navigation, route }: any) {
         {activeTab === 'search' && (
           <View style={{ paddingHorizontal: spacing.lg }}>
 
-            {/* Specialty grid */}
+            {/* Specialty grid — shown when no search active */}
             {!searched && (
               <View style={{ marginBottom: spacing.xl }}>
                 <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.textMuted, letterSpacing: 1, textTransform: 'uppercase', marginBottom: spacing.md }}>
@@ -556,9 +551,7 @@ export default function SearchScreen({ navigation, route }: any) {
                       style={{ backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
                     >
                       <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
-                      <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: '#FFFFFF' }}>
-                        Book now
-                      </Text>
+                      <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: '#FFFFFF' }}>Book now</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -569,6 +562,16 @@ export default function SearchScreen({ navigation, route }: any) {
 
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* ── MAP MODAL ── */}
+      <NearbyDoctorsMap
+        visible={mapVisible}
+        onClose={() => setMapVisible(false)}
+        onDoctorSelect={(doctorId: string) => {
+          setMapVisible(false)
+          navigation.navigate('DoctorProfile', { doctorId })
+        }}
+      />
     </View>
   )
 }
