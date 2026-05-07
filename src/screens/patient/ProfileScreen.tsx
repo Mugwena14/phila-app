@@ -56,52 +56,58 @@ export default function ProfileScreen() {
       style={{ flex: 1, backgroundColor: colors.bgBase }}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 60, paddingBottom: spacing.lg, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 26, color: colors.text }}>Profile</Text>
-        <TouchableOpacity
-          onPress={toggleTheme}
-          style={{ backgroundColor: colors.bgElevated, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: colors.border }}
-        >
-          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: colors.textMuted }}>
-            {isDark ? '☀️ LIGHT' : '🌙 DARK'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+    {/* Header */}
+    <View style={{ paddingHorizontal: spacing.lg, paddingTop: 60, paddingBottom: spacing.lg, alignItems: 'center' }}>
+      <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 17, color: colors.text }}>Profile</Text>
+    </View>
 
       {/* Profile card */}
-      <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg, alignItems: 'center' }}>
-        <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: colors.goldBg, borderWidth: 3, borderColor: colors.gold, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
-          <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 30, color: colors.gold }}>{initials}</Text>
-        </View>
-        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 20, color: colors.text, marginBottom: 4 }}>
-          {user?.full_name ?? 'Patient'}
-        </Text>
-        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, marginBottom: spacing.md }}>
-          {user?.email ?? ''}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 4 }}>
-          <View style={{ backgroundColor: colors.tealBg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 1, borderColor: colors.tealBorder }}>
-            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: colors.teal }}>VERIFIED</Text>
+      <View style={{ marginHorizontal: spacing.lg, backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, marginBottom: spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          {/* Avatar */}
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.goldBg, borderWidth: 2, borderColor: colors.gold, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 22, color: colors.gold }}>{initials}</Text>
           </View>
-          <View style={{ backgroundColor: colors.goldBg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 1, borderColor: colors.goldBorder }}>
-            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: colors.gold }}>PATIENT</Text>
+
+          {/* Name + email */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text, marginBottom: 2 }}>
+              {user?.full_name ?? 'Patient'}
+            </Text>
+            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>
+              {user?.email ?? ''}
+            </Text>
           </View>
         </View>
+
       </View>
 
       {/* Health stats */}
       <View style={{ marginHorizontal: spacing.lg, marginBottom: spacing.lg }}>
         <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: spacing.md }}>Health info</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-          {HEALTH_STATS.map((stat) => (
+        <View style={{ backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+          {HEALTH_STATS.map((stat, i) => (
             <View
               key={stat.label}
-              style={{ width: '47.5%', backgroundColor: colors.bgSurface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md, alignItems: 'center', gap: 4 }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: spacing.lg,
+                paddingVertical: 14,
+                borderBottomWidth: i < HEALTH_STATS.length - 1 ? 1 : 0,
+                borderBottomColor: colors.border,
+                gap: spacing.md,
+              }}
             >
-              <Text style={{ fontSize: 22 }}>{stat.icon}</Text>
-              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text }}>{stat.value}</Text>
-              <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textFaint }}>{stat.label}</Text>
+              <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.bgElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 16 }}>{stat.icon}</Text>
+              </View>
+              <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 14, color: colors.text, flex: 1 }}>
+                {stat.label}
+              </Text>
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: colors.primary }}>
+                {stat.value} <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textFaint }}>{stat.unit}</Text>
+              </Text>
             </View>
           ))}
         </View>
@@ -140,7 +146,7 @@ export default function ProfileScreen() {
         {SETTINGS.map((item, i) => (
           <TouchableOpacity
             key={item.label}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, borderBottomWidth: i < SETTINGS.length - 1 ? 1 : 0, borderBottomColor: colors.border, gap: spacing.md }}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.md }}
             activeOpacity={0.7}
           >
             <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.bgElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
@@ -153,6 +159,26 @@ export default function ProfileScreen() {
             <Text style={{ color: colors.textFaint }}>›</Text>
           </TouchableOpacity>
         ))}
+
+        {/* Theme toggle */}
+        <TouchableOpacity
+          onPress={toggleTheme}
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 14, gap: spacing.md }}
+          activeOpacity={0.7}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.bgElevated, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 16 }}>{isDark ? '☀️' : '🌙'}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 14, color: colors.text }}>
+              {isDark ? 'Light mode' : 'Dark mode'}
+            </Text>
+            <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textFaint }}>
+              {isDark ? 'Switch to light theme' : 'Switch to dark theme'}
+            </Text>
+          </View>
+          <Text style={{ color: colors.textFaint }}>›</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Sign out */}

@@ -553,23 +553,23 @@ export default function NearbyDoctorsMap({ visible, onClose, onDoctorSelect }: N
                 setSelectedDoctor(null)
             }}
             >
-{doctors.map((doctor) => (
-  <Marker
-    key={doctor.id}
-    coordinate={{ latitude: doctor.latitude, longitude: doctor.longitude }}
-    tracksViewChanges={false}
-    onPress={() => {
-      markerPressedRef.current = true
-      setSelectedDoctor(doctor)
-      setTimeout(() => { markerPressedRef.current = false }, 300)
-    }}
-  >
-    <DoctorPin
-      status={doctor.availability_status}
-      isSelected={selectedDoctor?.id === doctor.id}
-    />
-  </Marker>
-))}
+            {doctors.map((doctor) => (
+            <Marker
+                key={doctor.id}
+                coordinate={{ latitude: doctor.latitude, longitude: doctor.longitude }}
+                tracksViewChanges={false}
+                onPress={() => {
+                markerPressedRef.current = true
+                setSelectedDoctor(doctor)
+                setTimeout(() => { markerPressedRef.current = false }, 300)
+                }}
+            >
+                <DoctorPin
+                status={doctor.availability_status}
+                isSelected={selectedDoctor?.id === doctor.id}
+                />
+            </Marker>
+            ))}
             </MapView>
 
             <Legend />

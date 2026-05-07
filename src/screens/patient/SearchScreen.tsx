@@ -169,7 +169,7 @@ export default function SearchScreen({ navigation, route }: any) {
 
       {/* Header */}
       <View style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + 16, paddingBottom: spacing.md, backgroundColor: colors.bgBase }}>
-        <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 26, color: colors.text, marginBottom: spacing.md }}>
+        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 17, color: colors.text, marginBottom: spacing.md, textAlign: 'center' }}>
           Find your doctor
         </Text>
 
@@ -234,7 +234,7 @@ export default function SearchScreen({ navigation, route }: any) {
             </View>
 
             {/* Location button — opens map feature */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               onPress={() => setMapVisible(true)}
               style={{
                 flexDirection: 'row',
@@ -264,7 +264,7 @@ export default function SearchScreen({ navigation, route }: any) {
                 Find doctors near you...
               </Text>
               <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </>
         )}
 
@@ -561,7 +561,44 @@ export default function SearchScreen({ navigation, route }: any) {
         )}
 
         <View style={{ height: 80 }} />
+        {/* ── Floating Map button ── */}
       </ScrollView>
+      {activeTab === 'search' && (
+        <View style={{
+          position: 'absolute',
+          bottom: 10,
+          alignSelf: 'center',
+          zIndex: 20,
+        }}>
+          <TouchableOpacity
+            onPress={() => setMapVisible(true)}
+            activeOpacity={0.9}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 7,
+              paddingHorizontal: 20,
+              paddingVertical: 13,
+              borderRadius: 999,
+              backgroundColor: colors.primary,
+              shadowColor: colors.primary,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 12,
+              elevation: 10,
+            }}
+          >
+            <Ionicons name="map-outline" size={16} color="#FFFFFF" />
+            <Text style={{
+              fontFamily: 'Syne_700Bold',
+              fontSize: 14,
+              color: '#FFFFFF',
+            }}>
+              Map
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── MAP MODAL ── */}
       <NearbyDoctorsMap

@@ -15,6 +15,7 @@ import { bookingsApi } from '../../api/bookings'
 import { doctorsApi } from '../../api/doctors'
 import { Booking, Doctor } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
+import { notificationsApi } from '../../api/notifications'
 
 const SPECIALTIES = [
   { label: 'General', icon: 'medical-outline' as const, specialty: 'General Practitioner' },
@@ -31,11 +32,19 @@ export default function HomeScreen({ navigation }: any) {
   const { colors } = useThemeStore()
   const { user } = useAuthStore()
   const insets = useSafeAreaInsets()
-
+  
   const [bookings, setBookings] = useState<Booking[]>([])
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [currentDoctorIndex, setCurrentDoctorIndex] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(true)
+  
+  const [unreadCount, setUnreadCount] = useState<number>(0)
+
+  useEffect(() => {
+    notificationsApi.getUnreadCount()
+      .then(setUnreadCount)
+      .catch(() => {})
+  }, [])
 
   const fadeAnim = useRef(new Animated.Value(1)).current
   const slideAnim = useRef(new Animated.Value(0)).current
@@ -159,31 +168,42 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: colors.bgSurface,
-              borderWidth: 1,
-              borderColor: colors.borderStrong,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Ionicons name="notifications-outline" size={20} color={colors.text} />
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Notifications')}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: colors.bgSurface,
+            borderWidth: 1,
+            borderColor: colors.borderStrong,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Ionicons name="notifications-outline" size={20} color={colors.text} />
+          {unreadCount > 0 && (
             <View style={{
               position: 'absolute',
-              top: 10,
-              right: 10,
-              width: 8,
+              top: 8,
+              right: 8,
+              minWidth: 8,
               height: 8,
               borderRadius: 4,
               backgroundColor: colors.coral,
               borderWidth: 1.5,
               borderColor: colors.bgBase,
-            }} />
-          </TouchableOpacity>
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {unreadCount > 9 && (
+                <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 8, color: '#FFFFFF', lineHeight: 8 }}>
+                  9+
+                </Text>
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
         </View>
 
         {/* ── UPCOMING APPOINTMENT ── */}

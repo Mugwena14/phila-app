@@ -17,6 +17,7 @@ import ProfileScreen from '../screens/patient/ProfileScreen'
 import DoctorProfileScreen from '../screens/patient/DoctorProfileScreen'
 import BookingConfirmScreen from '../screens/patient/BookingConfirmScreen'
 import BookingSuccessScreen from '../screens/patient/BookingSuccessScreen'
+import NotificationsScreen from '../screens/patient/NotificationsScreen'
 
 // Doctor screens
 import DoctorTodayScreen from '../screens/doctor/DoctorTodayScreen'
@@ -52,11 +53,11 @@ function PatientTabs() {
         tabBarIcon: ({ color, focused }) => {
           const size = 22
           switch (route.name) {
-            case 'Home':       return <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
-            case 'Search':     return <Ionicons name={focused ? 'search' : 'search-outline'} size={size} color={color} />
+            case 'Home':         return <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
+            case 'Search':       return <Ionicons name={focused ? 'search' : 'search-outline'} size={size} color={color} />
             case 'Appointments': return <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={size} color={color} />
-            case 'Profile':    return <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
-            default:           return <Ionicons name="ellipse-outline" size={size} color={color} />
+            case 'Profile':      return <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
+            default:             return <Ionicons name="ellipse-outline" size={size} color={color} />
           }
         },
       })}
@@ -94,11 +95,11 @@ function DoctorTabs() {
         tabBarIcon: ({ color, focused }) => {
           const size = 22
           switch (route.name) {
-            case 'Today':    return <Ionicons name={focused ? 'pulse' : 'pulse-outline'} size={size} color={color} />
-            case 'Schedule': return <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={size} color={color} />
-            case 'Patients': return <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
+            case 'Today':        return <Ionicons name={focused ? 'pulse' : 'pulse-outline'} size={size} color={color} />
+            case 'Schedule':     return <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={size} color={color} />
+            case 'Patients':     return <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
             case 'DoctorProfile': return <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
-            default: return <Ionicons name="ellipse-outline" size={size} color={color} />
+            default:             return <Ionicons name="ellipse-outline" size={size} color={color} />
           }
         },
       })}
@@ -140,6 +141,7 @@ export default function Navigation() {
             <Stack.Screen name="DoctorProfile" component={DoctorProfileScreen} />
             <Stack.Screen name="BookingConfirm" component={BookingConfirmScreen} />
             <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
           </>
         )}
       </Stack.Navigator>

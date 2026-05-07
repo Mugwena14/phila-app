@@ -44,12 +44,13 @@ export default function RegisterScreen({ navigation }: any) {
     setError('')
 
     try {
-      const newUser = await authApi.register({
-        full_name: fullName,
-        email,
-        phone,
-        password,
-      })
+    const newUser = await authApi.register({
+      full_name: fullName,
+      email,
+      phone,
+      password,
+      role: 'patient',
+    })
 
       const tokenData = await authApi.login({ email, password })
 

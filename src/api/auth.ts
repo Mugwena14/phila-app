@@ -11,6 +11,7 @@ export interface RegisterPayload {
   email: string
   phone: string
   password: string
+  role: string
 }
 
 export const authApi = {
@@ -26,8 +27,6 @@ export const authApi = {
     return response.data
   },
 
-  // ── Accept optional token so we can call /me right after login ──
-  // before the token is stored in the axios interceptor
   me: async (token?: string): Promise<User> => {
     const response = await apiClient.get<User>('/auth/me', {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,

@@ -84,10 +84,10 @@ export default function AppointmentsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgBase }}>
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 60 }}>
-        <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 26, color: colors.text, marginBottom: spacing.lg }}>
-          Appointments
-        </Text>
+    <View style={{ paddingHorizontal: spacing.lg, paddingTop: 60 }}>
+      <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 17, color: colors.text, marginBottom: spacing.lg, textAlign: 'center' }}>
+        Appointments
+      </Text>
 
         {/* Tab row */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, marginBottom: spacing.lg }}>

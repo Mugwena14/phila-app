@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import {
   View,
   Text,
@@ -24,7 +24,7 @@ const DATE_OPTIONS = Array.from({ length: 14 }, (_, i) => {
   }
 })
 
-const MONTHS = [...new Set(DATE_OPTIONS.map((d) => d.month))]
+const SLOTS_PER_PAGE = 9
 
 export default function DoctorProfileScreen({ navigation, route }: any) {
   const { colors } = useThemeStore()
@@ -32,13 +32,13 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
   const insets = useSafeAreaInsets()
   const bottomPad = Math.max(insets.bottom, 16)
 
-  const [doctor, setDoctor] = useState<Doctor | null>(null)
-  const [slots, setSlots] = useState<Slot[]>([])
+  const [doctor, setDoctor]           = useState<Doctor | null>(null)
+  const [slots, setSlots]             = useState<Slot[]>([])
   const [selectedDate, setSelectedDate] = useState<string>(DATE_OPTIONS[0].value)
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
+  const [loading, setLoading]         = useState<boolean>(true)
   const [slotsLoading, setSlotsLoading] = useState<boolean>(false)
-  const [activeTab, setActiveTab] = useState<'morning' | 'afternoon' | 'evening'>('morning')
+  const [slotPage, setSlotPage]       = useState<number>(0)
 
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -55,6 +55,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
 
   const loadSlots = async (id: string, date: string): Promise<void> => {
     setSlotsLoading(true)
+    setSlotPage(0)
     try {
       const data = await doctorsApi.getSlots(id, date)
       setSlots(data)
@@ -71,14 +72,16 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
     if (doctor) void loadSlots(doctor.id, date)
   }
 
-  const filterSlotsByTime = (s: Slot) => {
-    const hour = parseInt(s.start_time.slice(0, 2))
-    if (activeTab === 'morning') return hour >= 6 && hour < 12
-    if (activeTab === 'afternoon') return hour >= 12 && hour < 17
-    return hour >= 17
+  const formatTime = (timeStr: string): string => {
+    const hour = parseInt(timeStr.slice(0, 2))
+    const minutes = timeStr.slice(3, 5)
+    const isPM = hour >= 12
+    const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
+    return `${displayHour}:${minutes} ${isPM ? 'PM' : 'AM'}`
   }
 
-  const filteredSlots = slots.filter(filterSlotsByTime)
+  const totalPages = Math.ceil(slots.length / SLOTS_PER_PAGE)
+  const pagedSlots = slots.slice(slotPage * SLOTS_PER_PAGE, (slotPage + 1) * SLOTS_PER_PAGE)
 
   if (loading || !doctor) {
     return (
@@ -92,8 +95,19 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
     <View style={{ flex: 1, backgroundColor: colors.bgBase }}>
       <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* Hero header */}
-        <View style={{ backgroundColor: colors.bgSurface, paddingBottom: spacing.xl, marginBottom: spacing.lg, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, borderBottomWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: colors.border, overflow: 'hidden' }}>
+        {/* ── HERO HEADER ── */}
+        <View style={{
+          backgroundColor: colors.bgSurface,
+          paddingBottom: spacing.xl,
+          marginBottom: spacing.lg,
+          borderBottomLeftRadius: 32,
+          borderBottomRightRadius: 32,
+          borderBottomWidth: 1,
+          borderLeftWidth: 1,
+          borderRightWidth: 1,
+          borderColor: colors.border,
+          overflow: 'hidden',
+        }}>
           <View style={{ height: 3, backgroundColor: colors.primary }} />
 
           {/* Back button */}
@@ -109,7 +123,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* Doctor avatar + info */}
+          {/* Avatar + info */}
           <View style={{ alignItems: 'center', paddingHorizontal: spacing.lg }}>
             <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: colors.primaryBg, borderWidth: 3, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
               <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 32, color: colors.primary }}>
@@ -136,8 +150,8 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             <View style={{ flexDirection: 'row', gap: spacing.sm, width: '100%' }}>
               {[
                 { label: 'Experience', value: `${doctor.years_experience}yrs` },
-                { label: 'Fee', value: `R${doctor.consultation_fee}` },
-                { label: 'Duration', value: `${doctor.slot_duration_minutes}min` },
+                { label: 'Fee',        value: `R${doctor.consultation_fee}` },
+                { label: 'Duration',   value: `${doctor.slot_duration_minutes}min` },
               ].map((stat, i) => (
                 <View key={stat.label} style={{ flex: 1, backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
                   <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: i === 1 ? colors.primary : colors.text, marginBottom: 2 }}>
@@ -152,7 +166,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
 
         <View style={{ paddingHorizontal: spacing.lg }}>
 
-          {/* About */}
+          {/* ── ABOUT ── */}
           {doctor.bio && (
             <View style={{ marginBottom: spacing.xl }}>
               <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: spacing.sm }}>About</Text>
@@ -162,7 +176,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             </View>
           )}
 
-          {/* Medical aids */}
+          {/* ── MEDICAL AIDS ── */}
           <View style={{ marginBottom: spacing.xl }}>
             <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: spacing.sm }}>
               Medical aids accepted
@@ -174,64 +188,56 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
                 </View>
               ))}
               {doctor.medical_aids.length === 0 && (
-                <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>
-                  Cash patients accepted
-                </Text>
+                <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>Cash patients accepted</Text>
               )}
             </View>
           </View>
 
-          {/* Select date */}
-          <View style={{ marginBottom: spacing.md }}>
+          {/* ── SELECT DATE ── */}
+          <View style={{ marginBottom: spacing.xl }}>
             <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: spacing.md }}>
               Select date
             </Text>
-
-            {/* Month labels */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, marginBottom: spacing.md }}>
-              {MONTHS.map((month) => (
-                <Text key={month} style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 }}>
-                  {month}
-                </Text>
-              ))}
-            </ScrollView>
-
-            {/* Day picker */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: spacing.sm, paddingVertical: 4 }}
+            >
               {DATE_OPTIONS.map((d) => {
                 const isSelected = selectedDate === d.value
                 return (
                   <TouchableOpacity
                     key={d.value}
                     onPress={() => handleDateSelect(d.value)}
+                    activeOpacity={0.75}
                     style={{
                       alignItems: 'center',
-                      paddingHorizontal: 14,
+                      justifyContent: 'center',
+                      width: 52,
                       paddingVertical: 12,
-                      borderRadius: radius.lg,
+                      borderRadius: 16,
                       backgroundColor: isSelected ? colors.primary : colors.bgSurface,
                       borderWidth: 1,
                       borderColor: isSelected ? colors.primary : colors.border,
-                      minWidth: 56,
                     }}
                   >
                     <Text style={{
-                      fontFamily: 'DMSans_500Medium',
-                      fontSize: 11,
-                      color: isSelected ? 'rgba(255,255,255,0.75)' : colors.textFaint,
-                      marginBottom: 5,
-                      textTransform: 'uppercase',
-                      letterSpacing: 1,
-                    }}>
-                      {d.dayName}
-                    </Text>
-                    <Text style={{
-                      fontFamily: 'Syne_700Bold',
+                      fontFamily: 'Syne_800ExtraBold',
                       fontSize: 20,
                       color: isSelected ? '#FFFFFF' : colors.text,
-                      lineHeight: 22,
+                      lineHeight: 24,
                     }}>
                       {d.dayNum}
+                    </Text>
+                    <Text style={{
+                      fontFamily: 'DMSans_500Medium',
+                      fontSize: 11,
+                      color: isSelected ? 'rgba(255,255,255,0.8)' : colors.textMuted,
+                      marginTop: 2,
+                      textTransform: 'uppercase',
+                      letterSpacing: 0.5,
+                    }}>
+                      {d.dayName}
                     </Text>
                   </TouchableOpacity>
                 )
@@ -239,77 +245,94 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             </ScrollView>
           </View>
 
-          {/* Select time */}
+          {/* ── SELECT TIME ── */}
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: spacing.md }}>
-              Select time
-            </Text>
 
-            {/* Period tabs */}
-            <View style={{ flexDirection: 'row', backgroundColor: colors.bgSurface, borderRadius: radius.md, padding: 4, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border }}>
-              {(['morning', 'afternoon', 'evening'] as const).map((tab) => (
-                <TouchableOpacity
-                  key={tab}
-                  onPress={() => setActiveTab(tab)}
-                  style={{ flex: 1, paddingVertical: 8, borderRadius: radius.sm, backgroundColor: activeTab === tab ? colors.primary : 'transparent', alignItems: 'center' }}
-                >
-                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 12, color: activeTab === tab ? '#FFFFFF' : colors.textMuted, textTransform: 'capitalize' }}>
-                    {tab === 'morning' ? '🌅' : tab === 'afternoon' ? '☀️' : '🌙'} {tab}
+            {/* Header — slot count + arrows */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text }}>
+                Select time
+              </Text>
+              {slots.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <TouchableOpacity
+                    onPress={() => setSlotPage(p => Math.max(0, p - 1))}
+                    disabled={slotPage === 0}
+                    style={{
+                      width: 28, height: 28, borderRadius: 14,
+                      backgroundColor: slotPage === 0 ? colors.bgElevated : colors.primaryBg,
+                      borderWidth: 1,
+                      borderColor: slotPage === 0 ? colors.border : colors.primaryBorder,
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons
+                      name="chevron-back"
+                      size={14}
+                      color={slotPage === 0 ? colors.textFaint : colors.primary}
+                    />
+                  </TouchableOpacity>
+
+                  <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: colors.textMuted }}>
+                    {slots.length} slot{slots.length !== 1 ? 's' : ''}
                   </Text>
-                </TouchableOpacity>
-              ))}
+
+                  <TouchableOpacity
+                    onPress={() => setSlotPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={slotPage >= totalPages - 1}
+                    style={{
+                      width: 28, height: 28, borderRadius: 14,
+                      backgroundColor: slotPage >= totalPages - 1 ? colors.bgElevated : colors.primaryBg,
+                      borderWidth: 1,
+                      borderColor: slotPage >= totalPages - 1 ? colors.border : colors.primaryBorder,
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color={slotPage >= totalPages - 1 ? colors.textFaint : colors.primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             {slotsLoading ? (
               <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.lg }} />
-            ) : filteredSlots.length === 0 ? (
+            ) : slots.length === 0 ? (
               <View style={{ backgroundColor: colors.bgSurface, borderRadius: radius.lg, padding: spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
+                <Ionicons name="calendar-outline" size={28} color={colors.textFaint} style={{ marginBottom: 8 }} />
                 <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>
-                  No {activeTab} slots available
+                  No slots available on this day
                 </Text>
               </View>
             ) : (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-                {filteredSlots.map((slot) => {
+                {pagedSlots.map((slot) => {
                   const isSelected = selectedSlot?.id === slot.id
-                  const hour = parseInt(slot.start_time.slice(0, 2))
-                  const isPM = hour >= 12
-                  const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour
-                  const minutes = slot.start_time.slice(3, 5)
-                  const period = isPM ? 'PM' : 'AM'
-
                   return (
                     <TouchableOpacity
                       key={slot.id}
                       onPress={() => setSelectedSlot(slot)}
+                      activeOpacity={0.75}
                       style={{
-                        alignItems: 'center',
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
+                        width: '30.5%',
+                        paddingVertical: 14,
                         borderRadius: radius.lg,
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         borderWidth: 1,
                         borderColor: isSelected ? colors.primary : colors.border,
                         backgroundColor: isSelected ? colors.primary : colors.bgSurface,
-                        minWidth: 64,
                       }}
                     >
                       <Text style={{
-                        fontFamily: 'DMSans_500Medium',
-                        fontSize: 11,
-                        color: isSelected ? 'rgba(255,255,255,0.75)' : colors.textFaint,
-                        marginBottom: 5,
-                        textTransform: 'uppercase',
-                        letterSpacing: 1,
-                      }}>
-                        {period}
-                      </Text>
-                      <Text style={{
                         fontFamily: 'Syne_700Bold',
-                        fontSize: 16,
+                        fontSize: 13,
                         color: isSelected ? '#FFFFFF' : colors.text,
-                        lineHeight: 18,
                       }}>
-                        {displayHour}:{minutes}
+                        {formatTime(slot.start_time)}
                       </Text>
                     </TouchableOpacity>
                   )
@@ -322,12 +345,10 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
         <View style={{ height: 180 }} />
       </ScrollView>
 
-      {/* Sticky book CTA */}
+      {/* ── STICKY BOOK CTA ── */}
       <View style={{
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        bottom: 0, left: 0, right: 0,
         backgroundColor: colors.bgSurface,
         borderTopWidth: 1,
         borderTopColor: colors.borderStrong,
@@ -340,7 +361,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
               <View>
                 <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted }}>Selected time</Text>
                 <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text }}>
-                  {selectedSlot.start_time.slice(0, 5)} — {selectedSlot.end_time.slice(0, 5)}
+                  {formatTime(selectedSlot.start_time)} — {formatTime(selectedSlot.end_time)}
                 </Text>
               </View>
               <View>
