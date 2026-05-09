@@ -26,6 +26,11 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
 
   const addToCalendar = async () => {
     try {
+      if (!booking.slot_date || !booking.slot_start_time) {
+        Alert.alert('Missing info', 'Could not read appointment date and time.')
+        return
+      }
+
       const { status } = await Calendar.requestCalendarPermissionsAsync()
       if (status !== 'granted') {
         Alert.alert('Permission needed', 'Please allow calendar access to add this appointment.')
@@ -34,10 +39,18 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
 
       const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)
       const writable  = calendars.find(c => c.allowsModifications)
-      if (!writable) return
+      if (!writable) {
+        Alert.alert('No calendar found', 'No writable calendar found on this device.')
+        return
+      }
 
       const startDate = new Date(`${booking.slot_date}T${booking.slot_start_time}`)
       const endDate   = new Date(startDate.getTime() + 30 * 60 * 1000)
+
+      if (isNaN(startDate.getTime())) {
+        Alert.alert('Error', 'Invalid appointment date or time.')
+        return
+      }
 
       await Calendar.createEventAsync(writable.id, {
         title:     `Appointment — ${booking.practice_name ?? 'Doctor'}`,
@@ -48,7 +61,8 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
       })
 
       setCalendarAdded(true)
-    } catch {
+    } catch (e) {
+      console.log('Calendar error:', e)
       Alert.alert('Error', 'Could not add to calendar. Please try again.')
     }
   }

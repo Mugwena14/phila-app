@@ -15,7 +15,7 @@ import { spacing, radius } from '../../theme/spacing'
 
 export default function BookingConfirmScreen({ navigation, route }: any) {
   const { colors } = useThemeStore()
-  const { slotId, doctor } = route.params
+  const { slotId, doctor, slot } = route.params
   const insets = useSafeAreaInsets()
   const bottomPad = Math.max(insets.bottom, 16)
 
@@ -28,7 +28,15 @@ export default function BookingConfirmScreen({ navigation, route }: any) {
     setError('')
     try {
       const booking = await bookingsApi.create({ slot_id: slotId, reason })
-      navigation.replace('BookingSuccess', { booking })
+      navigation.replace('BookingSuccess', {
+        booking: {
+          ...booking,
+          slot_date: slot?.date,
+          slot_start_time: slot?.start_time,
+          practice_name: doctor.practice_name,
+          specialty: doctor.specialty,
+        }
+      })
     } catch (err: unknown) {
       if (isAxiosError(err)) {
         const detail = err.response?.data?.detail

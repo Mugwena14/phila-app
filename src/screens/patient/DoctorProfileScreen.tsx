@@ -178,7 +178,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
                 </View>
               ))}
             </View>
-            
+
             {/* Get directions */}
             <TouchableOpacity
               onPress={openDirections}
@@ -406,7 +406,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
               </View>
             </View>
             <TouchableOpacity
-              onPress={() => navigation.navigate('BookingConfirm', { slotId: selectedSlot.id, doctor })}
+              onPress={() => navigation.navigate('BookingConfirm', { slotId: selectedSlot.id, doctor, slot: selectedSlot })}
               style={{ backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: 17, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
             >
               <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
