@@ -21,6 +21,8 @@ export interface Doctor {
   address: string
   city: string
   province: string
+  latitude: number | null
+  longitude: number | null 
   consultation_fee: number
   slot_duration_minutes: number
   medical_aids: string[]
@@ -70,7 +72,7 @@ export type RootStackParamList = {
   Login: undefined
   Register: undefined
   MainTabs: undefined
-  DoctorTabs: undefined                          // ← doctor navigation root
+  DoctorTabs: undefined     
   DoctorProfile: { doctorId: string }
   BookingConfirm: { slotId: string; doctor: Doctor }
   BookingSuccess: { booking: Booking }

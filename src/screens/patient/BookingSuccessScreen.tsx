@@ -1,15 +1,17 @@
-import React, { useEffect, useRef } from 'react'
-import { View, Text, Animated, TouchableOpacity } from 'react-native'
+import React, { useEffect, useRef, useState } from 'react'
+import { View, Text, Animated, TouchableOpacity, Platform, Alert } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import * as Calendar from 'expo-calendar'
 import { useThemeStore } from '../../store/themeStore'
 import { spacing, radius } from '../../theme/spacing'
 
 export default function BookingSuccessScreen({ navigation, route }: any) {
   const { colors } = useThemeStore()
   const { booking } = route.params
+  const [calendarAdded, setCalendarAdded] = useState(false)
 
   const scaleAnim = useRef(new Animated.Value(0)).current
-  const fadeAnim = useRef(new Animated.Value(0)).current
+  const fadeAnim  = useRef(new Animated.Value(0)).current
   const slideAnim = useRef(new Animated.Value(40)).current
 
   useEffect(() => {
@@ -21,6 +23,35 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
       ]),
     ]).start()
   }, [])
+
+  const addToCalendar = async () => {
+    try {
+      const { status } = await Calendar.requestCalendarPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Please allow calendar access to add this appointment.')
+        return
+      }
+
+      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)
+      const writable  = calendars.find(c => c.allowsModifications)
+      if (!writable) return
+
+      const startDate = new Date(`${booking.slot_date}T${booking.slot_start_time}`)
+      const endDate   = new Date(startDate.getTime() + 30 * 60 * 1000)
+
+      await Calendar.createEventAsync(writable.id, {
+        title:     `Appointment — ${booking.practice_name ?? 'Doctor'}`,
+        startDate,
+        endDate,
+        notes:     `Phila Health appointment with ${booking.practice_name}`,
+        alarms:    [{ relativeOffset: -60 }],
+      })
+
+      setCalendarAdded(true)
+    } catch {
+      Alert.alert('Error', 'Could not add to calendar. Please try again.')
+    }
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgBase, padding: spacing.lg, paddingTop: 80 }}>
@@ -41,7 +72,7 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
         </Text>
 
         {/* Booking card */}
-        <View style={{ backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.primaryBorder, overflow: 'hidden', marginBottom: spacing.xxl }}>
+        <View style={{ backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.primaryBorder, overflow: 'hidden', marginBottom: spacing.lg }}>
           <View style={{ height: 3, backgroundColor: colors.primary }} />
           <View style={{ padding: spacing.lg }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
@@ -71,18 +102,26 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
           </View>
         </View>
 
+        {/* Add to calendar */}
+        <TouchableOpacity
+          onPress={() => void addToCalendar()}
+          disabled={calendarAdded}
+          style={{
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+            backgroundColor: calendarAdded ? colors.primaryBg : colors.bgSurface,
+            borderRadius: radius.pill, paddingVertical: 14,
+            borderWidth: 1.5, borderColor: calendarAdded ? colors.primary : colors.border,
+            marginBottom: spacing.md,
+          }}
+        >
+          <Ionicons name={calendarAdded ? 'checkmark-circle' : 'calendar-outline'} size={18} color={calendarAdded ? colors.primary : colors.textMuted} />
+          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: calendarAdded ? colors.primary : colors.textMuted }}>
+            {calendarAdded ? 'Added to calendar ✓' : 'Add to calendar'}
+          </Text>
+        </TouchableOpacity>
+
         {/* WhatsApp note */}
-        <View style={{
-          backgroundColor: '#128C7E15',
-          borderRadius: radius.lg,
-          padding: spacing.md,
-          borderWidth: 1,
-          borderColor: '#128C7E30',
-          flexDirection: 'row',
-          gap: spacing.sm,
-          alignItems: 'flex-start',
-          marginBottom: spacing.xxl,
-        }}>
+        <View style={{ backgroundColor: '#128C7E15', borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: '#128C7E30', flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginBottom: spacing.xl }}>
           <Ionicons name="logo-whatsapp" size={22} color="#25D366" style={{ marginTop: 1 }} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.text, marginBottom: 4 }}>
@@ -94,25 +133,20 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        {/* Primary CTA */}
+        {/* CTAs */}
         <TouchableOpacity
           onPress={() => navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })}
           style={{ backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: 17, alignItems: 'center', marginBottom: spacing.md, flexDirection: 'row', justifyContent: 'center', gap: 8 }}
         >
           <Ionicons name="calendar-outline" size={18} color="#FFFFFF" />
-          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: '#FFFFFF' }}>
-            View my appointments
-          </Text>
+          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: '#FFFFFF' }}>View my appointments</Text>
         </TouchableOpacity>
 
-        {/* Ghost CTA */}
         <TouchableOpacity
           onPress={() => navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })}
           style={{ backgroundColor: 'transparent', borderRadius: radius.pill, paddingVertical: 17, alignItems: 'center', borderWidth: 1.5, borderColor: colors.primary }}
         >
-          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.primary }}>
-            Back to home
-          </Text>
+          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.primary }}>Back to home</Text>
         </TouchableOpacity>
       </Animated.View>
     </View>

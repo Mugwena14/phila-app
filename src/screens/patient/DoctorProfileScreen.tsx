@@ -12,6 +12,7 @@ import { doctorsApi } from '../../api/doctors'
 import { Doctor, Slot } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
 import { Ionicons } from '@expo/vector-icons'
+import { Linking, Platform } from 'react-native'
 
 const DATE_OPTIONS = Array.from({ length: 14 }, (_, i) => {
   const d = new Date()
@@ -40,6 +41,20 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
   const [slotsLoading, setSlotsLoading] = useState<boolean>(false)
   const [slotPage, setSlotPage]       = useState<number>(0)
 
+
+  const openDirections = () => {
+    if (!doctor) return;
+
+    const address = encodeURIComponent(
+      `${doctor.address}, ${doctor.city}, ${doctor.province}, South Africa`
+    )
+    const url = Platform.OS === 'ios'
+      ? `maps:?q=${address}`
+      : `https://maps.google.com/?q=${address}`
+    
+    Linking.openURL(url)
+  }
+
   useEffect(() => {
     const load = async (): Promise<void> => {
       try {
@@ -67,10 +82,12 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
     }
   }
 
+
   const handleDateSelect = (date: string): void => {
     setSelectedDate(date)
     if (doctor) void loadSlots(doctor.id, date)
   }
+
 
   const formatTime = (timeStr: string): string => {
     const hour = parseInt(timeStr.slice(0, 2))
@@ -161,6 +178,23 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
                 </View>
               ))}
             </View>
+            
+            {/* Get directions */}
+            <TouchableOpacity
+              onPress={openDirections}
+              style={{
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                marginTop: spacing.md,
+                backgroundColor: colors.bgElevated,
+                borderRadius: radius.pill, paddingVertical: 11,
+                borderWidth: 1, borderColor: colors.border,
+              }}
+            >
+              <Ionicons name="navigate-outline" size={16} color={colors.primary} />
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.primary }}>
+                Get directions
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
