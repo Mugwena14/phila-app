@@ -21,6 +21,11 @@ export const ratingsApi = {
     return res.data.can_rate
   },
 
+  getDoctorRatings: async (doctorId: string): Promise<Rating[]> => {
+    const res = await apiClient.get<Rating[]>(`/ratings/doctor/${doctorId}`)
+    return res.data
+  },
+
   getQueuePosition: async (bookingId: string): Promise<{
     position: number | null
     total: number | null

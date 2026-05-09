@@ -13,6 +13,7 @@ import { Doctor, Slot } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
 import { Ionicons } from '@expo/vector-icons'
 import { Linking, Platform } from 'react-native'
+import { ratingsApi, Rating } from '../../api/ratings'
 
 const DATE_OPTIONS = Array.from({ length: 14 }, (_, i) => {
   const d = new Date()
@@ -40,7 +41,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
   const [loading, setLoading]         = useState<boolean>(true)
   const [slotsLoading, setSlotsLoading] = useState<boolean>(false)
   const [slotPage, setSlotPage]       = useState<number>(0)
-
+  const [reviews, setReviews] = useState<Rating[]>([])
 
   const openDirections = () => {
     if (!doctor) return;
@@ -58,8 +59,12 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
   useEffect(() => {
     const load = async (): Promise<void> => {
       try {
-        const data = await doctorsApi.getById(doctorId)
+        const [data, reviewData] = await Promise.all([
+          doctorsApi.getById(doctorId),
+          ratingsApi.getDoctorRatings(doctorId),
+        ])
         setDoctor(data)
+        setReviews(reviewData)
         await loadSlots(data.id, selectedDate)
       } finally {
         setLoading(false)
@@ -153,15 +158,44 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 14, color: colors.textMuted, marginBottom: spacing.sm }}>
               {doctor.specialty}
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.lg }}>
-              <Ionicons name="star" size={14} color={colors.primary} />
-              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: colors.primary }}>4.8</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.sm }}>
+              {doctor.total_reviews > 0 ? (
+                <>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: '#F59E0B' }}>
+                    {doctor.rating.toFixed(1)}
+                  </Text>
+                  <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textFaint }}>
+                    ({doctor.total_reviews})
+                  </Text>
+                </>
+              ) : (
+                <View style={{ backgroundColor: colors.bgElevated, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.border }}>
+                  <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 11, color: colors.textMuted }}>New doctor</Text>
+                </View>
+              )}
               <Text style={{ color: colors.textFaint }}>·</Text>
               <Ionicons name="location-outline" size={13} color={colors.textMuted} />
               <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>
                 {doctor.city}, {doctor.province}
               </Text>
             </View>
+
+            {/* HPCSA Verified badge */}
+              {doctor.is_verified && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
+                  backgroundColor: colors.primaryBg, borderRadius: radius.pill,
+                  paddingHorizontal: 12, paddingVertical: 5,
+                  borderWidth: 1, borderColor: colors.primaryBorder,
+                  marginBottom: spacing.lg, alignSelf: 'center',
+                }}>
+                  <Ionicons name="shield-checkmark" size={13} color={colors.primary} />
+                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: colors.primary }}>
+                    HPCSA VERIFIED
+                  </Text>
+                </View>
+              )}
 
             {/* Stats row */}
             <View style={{ flexDirection: 'row', gap: spacing.sm, width: '100%' }}>
@@ -226,6 +260,53 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
               )}
             </View>
           </View>
+
+          {/* ── Patient Reviews ── */}
+          {reviews.length > 0 && (
+            <View style={{ marginBottom: spacing.xl }}>
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: spacing.md }}>
+                Patient reviews
+              </Text>
+              <View style={{ gap: spacing.sm }}>
+                {reviews.slice(0, 5).map((review) => (
+                  <View
+                    key={review.id}
+                    style={{
+                      backgroundColor: colors.bgSurface,
+                      borderRadius: radius.lg,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      padding: spacing.md,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 6 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <Ionicons
+                          key={star}
+                          name={star <= review.rating ? 'star' : 'star-outline'}
+                          size={13}
+                          color="#F59E0B"
+                        />
+                      ))}
+                      <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textFaint, marginLeft: 4 }}>
+                        {new Date(review.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </Text>
+                    </View>
+                    {review.comment ? (
+                      <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, lineHeight: 18 }}>
+                        {review.comment}
+                      </Text>
+                    ) : (
+                      <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textFaint, fontStyle: 'italic' }}>
+                        No comment left
+                      </Text>
+                    )}
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
 
           {/* ── SELECT DATE ── */}
           <View style={{ marginBottom: spacing.xl }}>

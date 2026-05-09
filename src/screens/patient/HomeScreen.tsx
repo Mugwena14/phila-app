@@ -16,6 +16,8 @@ import { doctorsApi } from '../../api/doctors'
 import { Booking, Doctor } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
 import { notificationsApi } from '../../api/notifications'
+import { useCallback } from 'react'
+import { useFocusEffect } from '@react-navigation/native'
 
 const SPECIALTIES = [
   { label: 'General', icon: 'medical-outline' as const, specialty: 'General Practitioner' },
@@ -40,11 +42,13 @@ export default function HomeScreen({ navigation }: any) {
   
   const [unreadCount, setUnreadCount] = useState<number>(0)
 
-  useEffect(() => {
-    notificationsApi.getUnreadCount()
-      .then(setUnreadCount)
-      .catch(() => {})
-  }, [])
+  useFocusEffect(
+    useCallback(() => {
+      notificationsApi.getUnreadCount()
+        .then(setUnreadCount)
+        .catch(() => {})
+    }, [])
+  )
 
   const fadeAnim = useRef(new Animated.Value(1)).current
   const slideAnim = useRef(new Animated.Value(0)).current

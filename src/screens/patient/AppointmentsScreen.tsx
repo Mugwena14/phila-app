@@ -27,6 +27,7 @@ export default function AppointmentsScreen() {
   const [queuePositions, setQueuePositions] = useState<Record<string, any>>({})
   const [ratingBooking, setRatingBooking]   = useState<{ id: string; name: string } | null>(null)
   const [ratedBookings, setRatedBookings]   = useState<Set<string>>(new Set())
+  const [checkingIn, setCheckingIn] = useState<string | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -68,6 +69,18 @@ export default function AppointmentsScreen() {
     }
   }
 
+  const handleCheckIn = async (bookingId: string): Promise<void> => {
+    setCheckingIn(bookingId)
+    try {
+      await bookingsApi.checkIn(bookingId)
+      await load()
+    } catch {
+      // silent
+    } finally {
+      setCheckingIn(null)
+    }
+  }
+
   const getTabBookings = () => {
     switch (activeTab) {
       case 'upcoming':  return bookings.filter(b => b.status === 'confirmed')
@@ -101,6 +114,11 @@ export default function AppointmentsScreen() {
       case 'cancelled': return 'close-circle-outline'
       default:          return 'checkmark-circle-outline'
     }
+  }
+
+  const isToday = (dateStr: string | undefined): boolean => {
+    if (!dateStr) return false
+    return dateStr === new Date().toISOString().split('T')[0]
   }
 
   return (
@@ -266,6 +284,27 @@ export default function AppointmentsScreen() {
                     {/* Actions — confirmed bookings */}
                     {booking.status === 'confirmed' && (
                       <View style={{ gap: spacing.sm }}>
+                        {isToday(booking.slot_date) && (
+                            <TouchableOpacity
+                              onPress={() => void handleCheckIn(booking.id)}
+                              disabled={checkingIn === booking.id}
+                              style={{
+                                paddingVertical: 12,
+                                borderRadius: radius.pill,
+                                backgroundColor: checkingIn === booking.id ? colors.bgElevated : colors.primary,
+                                alignItems: 'center',
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                                gap: 6,
+                                opacity: checkingIn === booking.id ? 0.6 : 1,
+                              }}
+                            >
+                              <Ionicons name="location-outline" size={15} color="#FFFFFF" />
+                              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: '#FFFFFF' }}>
+                                {checkingIn === booking.id ? 'Checking in...' : "I'm here — Check in"}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         <TouchableOpacity
                           disabled
                           style={{ paddingVertical: 12, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.borderStrong, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}

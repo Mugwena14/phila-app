@@ -149,17 +149,20 @@ export default function NotificationsScreen({ navigation }: any) {
 
   const unreadCount = notifications.filter(n => !n.is_read).length
 
-  const load = useCallback(async () => {
-    try {
-      const data = await notificationsApi.getAll()
-      setNotifications(data)
-    } catch {
-      // silent
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
+const load = useCallback(async () => {
+  try {
+    const data = await notificationsApi.getAll()
+    console.log('Notifications count:', data.length)
+    console.log('Notifications data:', JSON.stringify(data[0]))
+    setNotifications(data)
+  } catch (e) {
+    console.log('Notifications error:', e)
+  } finally {
+    setLoading(false)
+    setRefreshing(false)
+  }
+}, [])
+
 
   useEffect(() => { void load() }, [load])
 
@@ -376,7 +379,7 @@ export default function NotificationsScreen({ navigation }: any) {
                       fontSize: 14,
                       lineHeight: 20
                     }}>
-                      No brief yet. Fill in the brief from our sent message from our assistance.
+                      No brief yet. Fill in the brief from our whatsapp assistance.
                     </Text>
                   </View>
                 )}

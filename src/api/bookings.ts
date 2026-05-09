@@ -12,6 +12,10 @@ export const bookingsApi = {
     return response.data
   },
 
+  checkIn: async (bookingId: string): Promise<void> => {
+  await apiClient.patch(`/bookings/${bookingId}/status`, { status: 'arrived' })
+  },
+
   getMyBookings: async (): Promise<Booking[]> => {
     const response = await apiClient.get<Booking[]>('/bookings/my')
     return response.data

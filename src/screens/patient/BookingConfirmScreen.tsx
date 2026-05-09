@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { useThemeStore } from '../../store/themeStore'
 import { bookingsApi } from '../../api/bookings'
+import { notificationsApi } from '../../api/notifications'
 import { spacing, radius } from '../../theme/spacing'
 
 export default function BookingConfirmScreen({ navigation, route }: any) {
@@ -19,15 +20,18 @@ export default function BookingConfirmScreen({ navigation, route }: any) {
   const insets = useSafeAreaInsets()
   const bottomPad = Math.max(insets.bottom, 16)
 
-  const [reason, setReason] = useState<string>('')
+  const [reason, setReason]   = useState<string>('')
   const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string>('')
+  const [error, setError]     = useState<string>('')
 
   const handleBook = async (): Promise<void> => {
     setLoading(true)
     setError('')
     try {
       const booking = await bookingsApi.create({ slot_id: slotId, reason })
+
+      notificationsApi.getUnreadCount().catch(() => {})
+
       navigation.replace('BookingSuccess', {
         booking: {
           ...booking,
@@ -92,10 +96,11 @@ export default function BookingConfirmScreen({ navigation, route }: any) {
             </View>
 
             {[
-              { icon: 'location-outline', label: 'Location', value: `${doctor.city}, ${doctor.province}` },
-              { icon: 'cash-outline', label: 'Consultation fee', value: `R${doctor.consultation_fee}` },
-              { icon: 'time-outline', label: 'Duration', value: `${doctor.slot_duration_minutes} minutes` },
-              { icon: 'business-outline', label: 'Practice', value: doctor.practice_name },
+              { icon: 'location-outline',  label: 'Location',         value: `${doctor.city}, ${doctor.province}` },
+              { icon: 'cash-outline',       label: 'Consultation fee', value: `R${doctor.consultation_fee}` },
+              { icon: 'time-outline',       label: 'Duration',         value: `${doctor.slot_duration_minutes} minutes` },
+              { icon: 'calendar-outline',   label: 'Date',             value: slot?.date ?? '—' },
+              { icon: 'alarm-outline',      label: 'Time',             value: slot?.start_time?.slice(0, 5) ?? '—' },
             ].map((item, i, arr) => (
               <View
                 key={item.label}
@@ -140,12 +145,10 @@ export default function BookingConfirmScreen({ navigation, route }: any) {
         <View style={{ height: 160 }} />
       </ScrollView>
 
-      {/* Sticky CTA — properly padded for all devices */}
+      {/* Sticky CTA */}
       <View style={{
         position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        bottom: 0, left: 0, right: 0,
         backgroundColor: colors.bgSurface,
         borderTopWidth: 1,
         borderTopColor: colors.borderStrong,
