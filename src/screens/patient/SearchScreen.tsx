@@ -24,6 +24,7 @@ import { doctorsApi } from '../../api/doctors'
 import { triageApi, TriageResult } from '../../api/triage'
 import { Doctor } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
+import DoctorSearchCard from './DoctorSearchCard'
 
 const SPECIALTIES = [
   { label: 'Neurology', icon: 'pulse-outline' as const },
@@ -777,12 +778,16 @@ return (
             </View>
           )}
 
-          {!loading && visibleDoctors.length > 0 && visibleDoctors.map((doctor) => {
+          {!loading && visibleDoctors.length > 0 && visibleDoctors.map((doctor, index) => {
             const isSelected = doctor.id === selectedDoctorId
             const coords = getValidCoords(doctor)
             return (
-              <TouchableOpacity
+              <DoctorSearchCard
                 key={doctor.id}
+                doctor={doctor}
+                index={index}
+                isSelected={isSelected}
+                colors={colors}
                 onPress={() => {
                   setSelectedDoctorId(doctor.id)
                   if (coords) {
@@ -795,87 +800,8 @@ return (
                     sheetRef.current?.snapToIndex(0)
                   }
                 }}
-                activeOpacity={0.85}
-                style={{
-                  backgroundColor: colors.bgSurface,
-                  borderRadius: radius.xl,
-                  borderWidth: isSelected ? 1.5 : 1,
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  marginBottom: spacing.md,
-                  overflow: 'hidden', // Ensures the top image follows the card border radius
-                }}
-              >
-                {/* Random Doctor/Practice Environment Image */}
-                <Image 
-                  source={{ uri: `https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80` }} 
-                  style={{ width: '100%', height: 140, backgroundColor: colors.bgElevated }}
-                  resizeMode="cover"
-                />
-
-                {/* Card Info Body Container */}
-                <View style={{ padding: spacing.lg }}>
-                  
-                  {/* Title & Pricing Layout */}
-                  <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: colors.text, marginBottom: 2 }}>
-                        {doctor.practice_name}
-                      </Text>
-                      <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, marginBottom: spacing.sm }}>
-                        {doctor.specialty}
-                      </Text>
-                      
-                      {/* Rating & City Location */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                        <Ionicons name="star" size={12} color={colors.primary} />
-                        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.text }}>4.8</Text>
-                        <Text style={{ color: colors.textFaint, fontSize: 12 }}>·</Text>
-                        <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted }}>{doctor.city}</Text>
-                      </View>
-                    </View>
-
-                    {/* Consultation Fee */}
-                    <View style={{ alignItems: 'flex-end', gap: spacing.xs }}>
-                      <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: colors.primary }}>R{doctor.consultation_fee}</Text>
-                      <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textFaint }}>per visit</Text>
-                    </View>
-                  </View>
-
-                  {/* Medical Aids Badges */}
-                  {doctor.medical_aids.length > 0 && (
-                    <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', marginBottom: spacing.md }}>
-                      {doctor.medical_aids.slice(0, 3).map((aid) => (
-                        <View key={aid} style={{ backgroundColor: colors.bgElevated, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.border }}>
-                          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textMuted }}>{aid}</Text>
-                        </View>
-                      ))}
-                      {doctor.medical_aids.length > 3 && (
-                        <View style={{ backgroundColor: colors.bgElevated, borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: colors.border }}>
-                          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textFaint }}>+{doctor.medical_aids.length - 3} more</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
-
-                  {/* Slot Details */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-                    <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted }}>
-                      {doctor.slot_duration_minutes}min slots · {doctor.years_experience} yrs exp
-                    </Text>
-                  </View>
-
-                  {/* Action Button */}
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('DoctorProfile', { doctorId: doctor.id })}
-                    style={{ backgroundColor: colors.primary, borderRadius: radius.pill, paddingVertical: 13, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
-                  >
-                    <Ionicons name="calendar-outline" size={15} color="#FFFFFF" />
-                    <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: '#FFFFFF' }}>View Practice</Text>
-                  </TouchableOpacity>
-                  
-                </View>
-              </TouchableOpacity>
+                onView={() => navigation.navigate('DoctorProfile', { doctorId: doctor.id })}
+              />
             )
           })}
         </BottomSheetScrollView>

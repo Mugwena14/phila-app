@@ -32,6 +32,7 @@ export interface Doctor {
   rating: number
   total_reviews: number
   created_at: string
+  practice_images: string[]
 }
 
 export interface Slot {
