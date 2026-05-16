@@ -22,7 +22,7 @@ export interface Doctor {
   city: string
   province: string
   latitude: number | null
-  longitude: number | null 
+  longitude: number | null
   consultation_fee: number
   slot_duration_minutes: number
   medical_aids: string[]
@@ -55,12 +55,18 @@ export interface Booking {
   slot_date?: string
   slot_start_time?: string
   slot_end_time?: string
+  slot_duration_minutes?: number
   doctor_name?: string
   practice_name?: string
   specialty?: string
   intake_status?: string
   intake_brief?: any
   crisis_flag?: string
+  latitude?: number | null
+  longitude?: number | null
+  address?: string
+  city?: string
+  province?: string
 }
 
 export interface TokenResponse {
@@ -72,7 +78,7 @@ export type RootStackParamList = {
   Login: undefined
   Register: undefined
   MainTabs: undefined
-  DoctorTabs: undefined     
+  DoctorTabs: undefined
   DoctorProfile: { doctorId: string }
   BookingConfirm: { slotId: string; doctor: Doctor }
   BookingSuccess: { booking: Booking }

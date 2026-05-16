@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import {
   View, Text, Modal, TouchableOpacity,
-  TextInput, ActivityIndicator, Animated,
+  TextInput, ActivityIndicator
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useThemeStore } from '../../store/themeStore'
@@ -23,12 +23,19 @@ export default function RatingModal({ visible, bookingId, doctorName, onClose, o
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError]     = useState<string>('')
 
-  const handleSubmit = async () => {
-    if (rating === 0) { setError('Please select a rating'); return }
+  const handleSubmit = async (): Promise<void> => {
+    if (rating === 0) { 
+      setError('Please select a rating')
+      return 
+    }
     setLoading(true)
     setError('')
     try {
-      await ratingsApi.submit({ booking_id: bookingId, rating, comment: comment.trim() || undefined })
+      await ratingsApi.submit({ 
+        booking_id: bookingId, 
+        rating, 
+        comment: comment.trim() || undefined 
+      })
       onSuccess()
     } catch {
       setError('Could not submit rating. Please try again.')
@@ -37,7 +44,7 @@ export default function RatingModal({ visible, bookingId, doctorName, onClose, o
     }
   }
 
-  const LABELS = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent']
+  const LABELS: string[] = ['', 'Poor', 'Fair', 'Good', 'Very good', 'Excellent']
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -70,7 +77,7 @@ export default function RatingModal({ visible, bookingId, doctorName, onClose, o
 
         {/* Stars */}
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-          {[1, 2, 3, 4, 5].map((star) => (
+          {[1, 2, 3, 4, 5].map((star: number) => (
             <TouchableOpacity key={star} onPress={() => setRating(star)} activeOpacity={0.7}>
               <Ionicons
                 name={star <= rating ? 'star' : 'star-outline'}

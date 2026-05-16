@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   View,
   Text,
@@ -6,8 +6,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Linking,
+  Platform,
+  Image,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useThemeStore } from '../../store/themeStore'
 import { bookingsApi } from '../../api/bookings'
 import { Booking } from '../../types'
@@ -15,19 +19,70 @@ import { spacing, radius } from '../../theme/spacing'
 import { ratingsApi } from '../../api/ratings'
 import RatingModal from './RatingsModal'
 
-type TabType = 'upcoming' | 'past' | 'cancelled'
+// ════════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════════
+
+const getBookingDateTime = (booking: Booking): Date | null => {
+  if (!booking.slot_date || !booking.slot_start_time) return null
+  const time = booking.slot_start_time.length >= 5 ? booking.slot_start_time.slice(0, 5) : '00:00'
+  const dt = new Date(`${booking.slot_date}T${time}:00`)
+  return Number.isNaN(dt.getTime()) ? null : dt
+}
+
+const getCountdownLabel = (dt: Date): string => {
+  const now = new Date()
+  const diffMs = dt.getTime() - now.getTime()
+  const diffMin = Math.round(diffMs / 60000)
+
+  if (diffMin < 0) return 'Now'
+  if (diffMin < 1) return 'Now'
+  if (diffMin < 60) return `In ${diffMin} min`
+
+  const diffHours = Math.round(diffMin / 60)
+  if (diffHours < 24) return `In ${diffHours} hour${diffHours !== 1 ? 's' : ''}`
+
+  const diffDays = Math.round(diffHours / 24)
+  if (diffDays === 1) return 'Tomorrow'
+  if (diffDays < 7) return `In ${diffDays} days`
+
+  const diffWeeks = Math.round(diffDays / 7)
+  return `In ${diffWeeks} week${diffWeeks !== 1 ? 's' : ''}`
+}
+
+const formatDateLabel = (dt: Date): string => {
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const target = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate())
+  const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return 'Today'
+  if (diffDays === 1) return 'Tomorrow'
+  if (diffDays === -1) return 'Yesterday'
+
+  return dt.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+const formatTimeLabel = (dt: Date): string => {
+  return dt.toLocaleTimeString('en-ZA', { hour: 'numeric', minute: '2-digit', hour12: true })
+}
+
+// ════════════════════════════════════════════════
+// COMPONENT
+// ════════════════════════════════════════════════
 
 export default function AppointmentsScreen() {
   const { colors } = useThemeStore()
-  const [bookings, setBookings]           = useState<Booking[]>([])
-  const [loading, setLoading]             = useState<boolean>(true)
-  const [refreshing, setRefreshing]       = useState<boolean>(false)
-  const [activeTab, setActiveTab]         = useState<TabType>('upcoming')
-  const [cancelling, setCancelling]       = useState<string | null>(null)
+  const insets = useSafeAreaInsets()
+
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [loading, setLoading] = useState<boolean>(true)
+  const [refreshing, setRefreshing] = useState<boolean>(false)
+  const [cancelling, setCancelling] = useState<string | null>(null)
   const [queuePositions, setQueuePositions] = useState<Record<string, any>>({})
-  const [ratingBooking, setRatingBooking]   = useState<{ id: string; name: string } | null>(null)
-  const [ratedBookings, setRatedBookings]   = useState<Set<string>>(new Set())
-  const [checkingIn, setCheckingIn] = useState<string | null>(null)
+  const [ratingBooking, setRatingBooking] = useState<{ id: string; name: string } | null>(null)
+  const [ratedBookings, setRatedBookings] = useState<Set<string>>(new Set())
+  const [expandedInfoIds, setExpandedInfoIds] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async (): Promise<void> => {
     try {
@@ -43,7 +98,6 @@ export default function AppointmentsScreen() {
 
   useEffect(() => { void load() }, [load])
 
-  // Load queue positions for today's confirmed bookings
   useEffect(() => {
     const loadQueuePositions = async () => {
       const todayConfirmed = bookings.filter(b => b.status === 'confirmed')
@@ -69,98 +123,310 @@ export default function AppointmentsScreen() {
     }
   }
 
-  const handleCheckIn = async (bookingId: string): Promise<void> => {
-    setCheckingIn(bookingId)
-    try {
-      await bookingsApi.checkIn(bookingId)
-      await load()
-    } catch {
-      // silent
-    } finally {
-      setCheckingIn(null)
-    }
+  const toggleExpand = (id: string) => {
+    setExpandedInfoIds(prev => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const getTabBookings = () => {
-    switch (activeTab) {
-      case 'upcoming':  return bookings.filter(b => b.status === 'confirmed')
-      case 'cancelled': return bookings.filter(b => b.status === 'cancelled')
-      case 'past':      return bookings.filter(b => b.status === 'completed' || b.status === 'no_show')
-    }
+  // ── Coordinate-aware directions launcher ──
+  const openDirections = (booking: Booking) => {
+    if (!booking) return
+
+    const destination = encodeURIComponent(
+      `${booking.address ?? ''}, ${booking.city ?? ''}, ${booking.province ?? ''}, South Africa`
+    )
+
+    const url = Platform.OS === 'ios'
+      ? `http://maps.apple.com/?daddr=${destination}&dirflg=d`
+      : `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`
+
+    Linking.openURL(url)
   }
 
-  const displayed = getTabBookings()
-  const upcoming  = bookings.filter(b => b.status === 'confirmed')
-  const cancelled = bookings.filter(b => b.status === 'cancelled')
-  const past      = bookings.filter(b => b.status === 'completed' || b.status === 'no_show')
+  // ── Bookings sorted into 3 buckets ──
+  const { upcoming, past, cancelled } = useMemo(() => {
+    const upcomingList = bookings
+      .filter(b => b.status === 'confirmed')
+      .sort((a, b) => (getBookingDateTime(a)?.getTime() ?? 0) - (getBookingDateTime(b)?.getTime() ?? 0))
 
-  const TABS: { key: TabType; label: string; count: number }[] = [
-    { key: 'upcoming',  label: 'Upcoming',  count: upcoming.length },
-    { key: 'past',      label: 'Past',      count: past.length },
-    { key: 'cancelled', label: 'Cancelled', count: cancelled.length },
-  ]
+    const cancelledList = bookings
+      .filter(b => b.status === 'cancelled')
+      .sort((a, b) => (getBookingDateTime(b)?.getTime() ?? 0) - (getBookingDateTime(a)?.getTime() ?? 0))
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed': return { bg: colors.primaryBg, border: colors.primaryBorder, text: colors.primary, bar: colors.primary }
-      case 'cancelled': return { bg: colors.coralBg, border: colors.coralBorder, text: colors.coral, bar: colors.coral }
-      default:          return { bg: colors.bgElevated, border: colors.border, text: colors.textMuted, bar: colors.textFaint }
-    }
+    const pastList = bookings
+      .filter(b => b.status === 'completed' || b.status === 'no_show')
+      .sort((a, b) => (getBookingDateTime(b)?.getTime() ?? 0) - (getBookingDateTime(a)?.getTime() ?? 0))
+
+    return { upcoming: upcomingList, past: pastList, cancelled: cancelledList }
+  }, [bookings])
+
+  // ════════════════════════════════════════════════
+  // RENDER HERO CARD
+  // ════════════════════════════════════════════════
+  const renderHeroCard = (booking: Booking) => {
+    const dt = getBookingDateTime(booking)
+    const countdown = dt ? getCountdownLabel(dt) : ''
+    const dateLabel = dt ? formatDateLabel(dt) : (booking.slot_date ?? '—')
+    const timeLabel = dt ? formatTimeLabel(dt) : (booking.slot_start_time?.slice(0, 5) ?? '—')
+    const queue = queuePositions[booking.id]
+    const isExpanded = !!expandedInfoIds[booking.id]
+
+    const lat = Number(booking.latitude)
+    const lng = Number(booking.longitude)
+    const hasValidCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
+    const hasLocationData = hasValidCoords || !!booking.address
+
+    return (
+      <View style={{
+        backgroundColor: colors.bgSurface,
+        borderRadius: radius.xl,
+        borderWidth: 1,
+        borderColor: colors.border,
+        overflow: 'hidden',
+        marginBottom: spacing.xl,
+      }}>
+        {/* Banner — pointerEvents="box-none" so banner doesn't intercept body taps */}
+        <View
+          pointerEvents="box-none"
+          style={{ width: '100%', height: 140, backgroundColor: colors.bgElevated, position: 'relative' }}
+        >
+          <Image
+            source={{ uri: `https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&w=600&q=80` }}
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+          <View
+            pointerEvents="none"
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.25)' }}
+          />
+          <View
+            pointerEvents="none"
+            style={{ position: 'absolute', bottom: spacing.md, left: spacing.md, right: spacing.md }}
+          >
+            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: '#FFFFFF', opacity: 0.9 }}>
+              {countdown}
+            </Text>
+            <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 20, color: '#FFFFFF', marginTop: 2 }}>
+              {booking.practice_name ?? 'Appointment'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Body */}
+        <View style={{ padding: spacing.lg, backgroundColor: colors.bgSurface }}>
+          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text }}>
+            {dateLabel} at {timeLabel}
+          </Text>
+
+          <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, marginTop: 4 }}>
+            {booking.slot_duration_minutes ? `${booking.slot_duration_minutes} min` : '30 min'} · {booking.specialty ?? 'Service Details'}
+          </Text>
+
+          {/* Actions row */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, gap: spacing.md }}>
+            <TouchableOpacity
+              onPress={() => openDirections(booking)}
+              activeOpacity={0.7}
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 18,
+                borderRadius: radius.pill,
+                borderWidth: 1,
+                borderColor: colors.borderStrong,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 13, color: colors.text }}>
+                Get directions
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => toggleExpand(booking.id)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: radius.pill,
+                backgroundColor: colors.bgElevated,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Ionicons
+                name={isExpanded ? "chevron-up-outline" : "calendar-outline"}
+                size={18}
+                color={isExpanded ? colors.primary : colors.text}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Expandable details */}
+          {isExpanded && (
+            <View style={{ marginTop: spacing.lg, borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.md }}>
+              {booking.intake_status && (
+                <View style={{ alignSelf: 'flex-start', backgroundColor: booking.intake_status === 'complete' ? colors.primaryBg : colors.bgElevated, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: booking.intake_status === 'complete' ? colors.primaryBorder : colors.border, marginBottom: spacing.sm }}>
+                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 10, color: booking.intake_status === 'complete' ? colors.primary : colors.textFaint }}>
+                    {booking.intake_status === 'complete' ? '✓ INTAKE DONE' : 'INTAKE PENDING'}
+                  </Text>
+                </View>
+              )}
+
+              {queue && (
+                <View style={{ backgroundColor: colors.primaryBg, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: colors.primaryBorder }}>
+                  <Ionicons name="people-outline" size={16} color={colors.primary} />
+                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.primary, flex: 1 }}>You are #{queue.position} in the queue</Text>
+                </View>
+              )}
+
+              {booking.intake_status === 'pending' && (
+                <View style={{ backgroundColor: '#128C7E10', borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.md, flexDirection: 'row', gap: 6, alignItems: 'center', borderWidth: 1, borderColor: '#128C7E25' }}>
+                  <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
+                  <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, flex: 1 }}>
+                    Check WhatsApp — our assistant has questions for your doctor.
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                onPress={() => void handleCancel(booking.id)}
+                disabled={cancelling === booking.id}
+                style={{
+                  width: '100%',
+                  paddingVertical: 12,
+                  borderRadius: radius.pill,
+                  backgroundColor: cancelling === booking.id ? colors.bgElevated : colors.coralBg,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: colors.coralBorder,
+                  opacity: cancelling === booking.id ? 0.5 : 1,
+                  marginTop: spacing.sm,
+                }}
+              >
+                <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.coral }}>
+                  {cancelling === booking.id ? 'Cancelling...' : 'Cancel Appointment'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </View>
+    )
   }
 
-  const getEmptyIcon = (): keyof typeof Ionicons.glyphMap => {
-    switch (activeTab) {
-      case 'upcoming':  return 'calendar-outline'
-      case 'cancelled': return 'close-circle-outline'
-      default:          return 'checkmark-circle-outline'
-    }
+  // ════════════════════════════════════════════════
+  // RENDER COMPACT LIST CARD
+  // ════════════════════════════════════════════════
+  const renderCompactCard = (booking: Booking, isUpcomingList: boolean = false) => {
+    const dt = getBookingDateTime(booking)
+    const dateLabel = dt ? formatDateLabel(dt) : (booking.slot_date ?? '—')
+    const timeLabel = dt ? formatTimeLabel(dt) : (booking.slot_start_time?.slice(0, 5) ?? '—')
+    const isCompleted = booking.status === 'completed' || booking.status === 'no_show'
+    const isCancelled = booking.status === 'cancelled'
+    const isExpanded = !!expandedInfoIds[booking.id]
+
+    return (
+      <View key={booking.id} style={{ backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, overflow: 'hidden' }}>
+        <View style={{ padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <View style={{ width: 48, height: 48, borderRadius: radius.lg, backgroundColor: colors.bgElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 18, color: colors.textMuted }}>
+              {(booking.practice_name ?? '?').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text numberOfLines={1} style={{ fontFamily: 'Syne_700Bold', fontSize: 14, color: colors.text }}>
+              {booking.practice_name ?? 'Appointment'}
+            </Text>
+            <Text numberOfLines={1} style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+              {dateLabel} at {timeLabel}
+            </Text>
+            <Text numberOfLines={1} style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textFaint, marginTop: 2 }}>
+              {booking.slot_duration_minutes ? `${booking.slot_duration_minutes} min` : '30 min'} · {booking.specialty}
+            </Text>
+          </View>
+
+          <View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+            {isCompleted ? (
+              <TouchableOpacity style={{ paddingVertical: 6, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.borderStrong }}>
+                <Text style={{ fontFamily: 'DMSans_700Bold', fontSize: 12, color: colors.text }}>Rebook</Text>
+              </TouchableOpacity>
+            ) : isCancelled ? (
+              <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: colors.coralBg, borderWidth: 1, borderColor: colors.coralBorder }}>
+                <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 9, color: colors.coral }}>CANCELLED</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => toggleExpand(booking.id)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ width: 34, height: 34, borderRadius: radius.pill, backgroundColor: colors.bgElevated, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}
+              >
+                <Ionicons name={isExpanded ? "chevron-up-outline" : "calendar-outline"} size={16} color={colors.text} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {isUpcomingList && isExpanded && (
+          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.md, borderTopWidth: 1, borderColor: colors.border, paddingTop: spacing.sm }}>
+            {booking.intake_status === 'pending' && (
+              <View style={{ backgroundColor: '#128C7E10', borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.sm, flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                <Ionicons name="logo-whatsapp" size={13} color="#25D366" />
+                <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.textMuted, flex: 1 }}>
+                  Check WhatsApp — assistant instructions pending.
+                </Text>
+              </View>
+            )}
+            <TouchableOpacity
+              onPress={() => void handleCancel(booking.id)}
+              disabled={cancelling === booking.id}
+              style={{ width: '100%', paddingVertical: 10, borderRadius: radius.pill, backgroundColor: colors.coralBg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.coralBorder }}
+            >
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 12, color: colors.coral }}>
+                {cancelling === booking.id ? 'Cancelling...' : 'Cancel'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {isCompleted && !ratedBookings.has(booking.id) && (
+          <View style={{ paddingHorizontal: spacing.md, paddingBottom: spacing.md }}>
+            <TouchableOpacity onPress={() => setRatingBooking({ id: booking.id, name: booking.practice_name ?? 'Doctor' })} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: '#F59E0B15', borderRadius: radius.pill, paddingVertical: 8, borderWidth: 1, borderColor: '#F59E0B30' }}>
+              <Ionicons name="star-outline" size={12} color="#F59E0B" />
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: '#F59E0B' }}>Rate experience</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    )
   }
 
-  const isToday = (dateStr: string | undefined): boolean => {
-    if (!dateStr) return false
-    return dateStr === new Date().toISOString().split('T')[0]
-  }
+  const renderListSectionHeader = (label: string, count: number) => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: spacing.md, marginTop: spacing.md }}>
+      <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 20, color: colors.text }}>
+        {label}
+      </Text>
+      {count > 0 && (
+        <View style={{ backgroundColor: colors.bgElevated, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 1, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: colors.textMuted }}>{count}</Text>
+        </View>
+      )}
+    </View>
+  )
+
+  const hasNoContent = upcoming.length === 0 && past.length === 0 && cancelled.length === 0
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgBase }}>
 
-      {/* Header */}
-      <View style={{ paddingHorizontal: spacing.lg, paddingTop: 60 }}>
-        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 17, color: colors.text, marginBottom: spacing.lg, textAlign: 'center' }}>
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + 20, paddingBottom: spacing.xs }}>
+        <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 28, color: colors.text }}>
           Appointments
         </Text>
-
-        {/* Tab row */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm, marginBottom: spacing.lg }}>
-          {TABS.map((tab) => (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={{
-                paddingHorizontal: 16, paddingVertical: 9,
-                borderRadius: radius.pill,
-                backgroundColor: activeTab === tab.key ? colors.primary : colors.bgSurface,
-                borderWidth: 1,
-                borderColor: activeTab === tab.key ? colors.primary : colors.border,
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-              }}
-            >
-              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: activeTab === tab.key ? '#FFFFFF' : colors.textMuted }}>
-                {tab.label}
-              </Text>
-              {tab.count > 0 && (
-                <View style={{
-                  backgroundColor: activeTab === tab.key ? 'rgba(255,255,255,0.2)' : colors.bgElevated,
-                  borderRadius: 10, minWidth: 20, paddingHorizontal: 5, paddingVertical: 1, alignItems: 'center',
-                }}>
-                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 10, color: activeTab === tab.key ? '#FFFFFF' : colors.textFaint }}>
-                    {tab.count}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       {loading ? (
@@ -168,204 +434,43 @@ export default function AppointmentsScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); void load() }}
-              tintColor={colors.primary}
-            />
-          }
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load() }} tintColor={colors.primary} />}
         >
-          {displayed.length === 0 ? (
+          {hasNoContent ? (
             <View style={{ alignItems: 'center', paddingTop: spacing.xxl, paddingHorizontal: spacing.xl }}>
-              <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primaryBorder, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
-                <Ionicons name={getEmptyIcon()} size={36} color={colors.primary} />
-              </View>
-              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 17, color: colors.text, marginBottom: spacing.sm }}>
-                {activeTab === 'upcoming' ? 'No upcoming appointments' : activeTab === 'cancelled' ? 'No cancelled appointments' : 'No past appointments'}
-              </Text>
-              <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 14, color: colors.textMuted, textAlign: 'center' }}>
-                {activeTab === 'upcoming' ? 'Book an appointment to get started' : 'They will appear here when available'}
-              </Text>
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 16, color: colors.text, marginBottom: spacing.xs }}>No appointments discovered</Text>
+              <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 14, color: colors.textMuted, textAlign: 'center' }}>Your history and schedule logs will clear and collect here.</Text>
             </View>
           ) : (
-            displayed.map((booking) => {
-              const statusStyle = getStatusColor(booking.status)
-              return (
-                <View
-                  key={booking.id}
-                  style={{ backgroundColor: colors.bgSurface, borderRadius: radius.xl, borderWidth: 1, borderColor: statusStyle.border, marginBottom: spacing.md, overflow: 'hidden' }}
-                >
-                  {/* Status bar */}
-                  <View style={{ height: 3, backgroundColor: statusStyle.bar }} />
+            <>
+              {upcoming.length > 0 && (
+                <>
+                  {renderListSectionHeader('Upcoming', upcoming.length)}
+                  {renderHeroCard(upcoming[0])}
+                  {upcoming.slice(1).map(item => renderCompactCard(item, true))}
+                </>
+              )}
 
-                  <View style={{ padding: spacing.lg }}>
+              {past.length > 0 && (
+                <>
+                  {renderListSectionHeader('Past', past.length)}
+                  {past.map(item => renderCompactCard(item, false))}
+                </>
+              )}
 
-                    {/* Doctor row */}
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md, marginBottom: spacing.md }}>
-                      <View style={{ width: 52, height: 52, borderRadius: radius.lg, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primaryBorder, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="person-outline" size={24} color={colors.primary} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.text, marginBottom: 2 }}>
-                          {booking.practice_name ?? 'Appointment'}
-                        </Text>
-                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted }}>
-                          {booking.specialty}
-                        </Text>
-                      </View>
-                      <View style={{ alignItems: 'flex-end', gap: 5 }}>
-                        <View style={{ backgroundColor: statusStyle.bg, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: statusStyle.border }}>
-                          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 10, color: statusStyle.text }}>
-                            {booking.status.toUpperCase()}
-                          </Text>
-                        </View>
-                        {booking.intake_status && (
-                          <View style={{ backgroundColor: booking.intake_status === 'complete' ? colors.primaryBg : colors.bgElevated, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: booking.intake_status === 'complete' ? colors.primaryBorder : colors.border }}>
-                            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 9, color: booking.intake_status === 'complete' ? colors.primary : colors.textFaint }}>
-                              {booking.intake_status === 'complete' ? '✓ INTAKE DONE' : 'INTAKE PENDING'}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-
-                    {/* ── Queue position — only for today's confirmed ── */}
-                    {booking.status === 'confirmed' && queuePositions[booking.id] && (
-                      <View style={{
-                        backgroundColor: colors.primaryBg, borderRadius: radius.md,
-                        padding: spacing.sm, marginBottom: spacing.md,
-                        flexDirection: 'row', alignItems: 'center', gap: 8,
-                        borderWidth: 1, borderColor: colors.primaryBorder,
-                      }}>
-                        <Ionicons name="people-outline" size={16} color={colors.primary} />
-                        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.primary, flex: 1 }}>
-                          You are #{queuePositions[booking.id].position} in the queue
-                        </Text>
-                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted }}>
-                          ~{queuePositions[booking.id].estimated_wait_minutes} min wait
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Date + time */}
-                    <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md }}>
-                      <View style={{ flex: 1, backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="calendar-outline" size={14} color={colors.primary} />
-                        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.text }}>{booking.slot_date ?? '—'}</Text>
-                      </View>
-                      <View style={{ flex: 1, backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.sm, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="time-outline" size={14} color={colors.primary} />
-                        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.text }}>{booking.slot_start_time?.slice(0, 5) ?? '—'}</Text>
-                      </View>
-                    </View>
-
-                    {/* Reason */}
-                    {booking.reason !== null && booking.reason !== undefined && booking.reason !== '' && (
-                      <View style={{ backgroundColor: colors.bgElevated, borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.md, flexDirection: 'row', gap: 6, alignItems: 'flex-start' }}>
-                        <Ionicons name="chatbubble-outline" size={14} color={colors.textMuted} />
-                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, flex: 1 }} numberOfLines={2}>
-                          {booking.reason}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* WhatsApp intake note */}
-                    {booking.status === 'confirmed' && booking.intake_status === 'pending' && (
-                      <View style={{ backgroundColor: '#128C7E10', borderRadius: radius.md, padding: spacing.sm, marginBottom: spacing.md, flexDirection: 'row', gap: 6, alignItems: 'center', borderWidth: 1, borderColor: '#128C7E25' }}>
-                        <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
-                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted, flex: 1 }}>
-                          Check WhatsApp — our assistant has questions for your doctor.
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Actions — confirmed bookings */}
-                    {booking.status === 'confirmed' && (
-                      <View style={{ gap: spacing.sm }}>
-                        {isToday(booking.slot_date) && (
-                            <TouchableOpacity
-                              onPress={() => void handleCheckIn(booking.id)}
-                              disabled={checkingIn === booking.id}
-                              style={{
-                                paddingVertical: 12,
-                                borderRadius: radius.pill,
-                                backgroundColor: checkingIn === booking.id ? colors.bgElevated : colors.primary,
-                                alignItems: 'center',
-                                flexDirection: 'row',
-                                justifyContent: 'center',
-                                gap: 6,
-                                opacity: checkingIn === booking.id ? 0.6 : 1,
-                              }}
-                            >
-                              <Ionicons name="location-outline" size={15} color="#FFFFFF" />
-                              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: '#FFFFFF' }}>
-                                {checkingIn === booking.id ? 'Checking in...' : "I'm here — Check in"}
-                              </Text>
-                            </TouchableOpacity>
-                          )}
-                        <TouchableOpacity
-                          disabled
-                          style={{ paddingVertical: 12, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.borderStrong, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 }}
-                        >
-                          <Ionicons name="calendar-outline" size={15} color={colors.textMuted} />
-                          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.textMuted }}>Reschedule</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => void handleCancel(booking.id)}
-                          disabled={cancelling === booking.id}
-                          style={{ paddingVertical: 12, borderRadius: radius.pill, backgroundColor: cancelling === booking.id ? colors.bgElevated : colors.coralBg, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.coralBorder, opacity: cancelling === booking.id ? 0.5 : 1 }}
-                        >
-                          <Ionicons name="close-circle-outline" size={15} color={colors.coral} />
-                          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.coral }}>
-                            {cancelling === booking.id ? 'Cancelling...' : 'Cancel appointment'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {/* ── Rate button — completed bookings not yet rated ── */}
-                    {(booking.status === 'completed' || booking.status === 'no_show') &&
-                      !ratedBookings.has(booking.id) && (
-                      <TouchableOpacity
-                        onPress={() => setRatingBooking({ id: booking.id, name: booking.practice_name ?? 'Doctor' })}
-                        style={{
-                          marginTop: spacing.sm,
-                          flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          backgroundColor: '#F59E0B15', borderRadius: radius.pill, paddingVertical: 12,
-                          borderWidth: 1, borderColor: '#F59E0B30',
-                        }}
-                      >
-                        <Ionicons name="star-outline" size={15} color="#F59E0B" />
-                        <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: '#F59E0B' }}>
-                          Rate your experience
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-
-                    {/* Already rated label */}
-                    {(booking.status === 'completed' || booking.status === 'no_show') &&
-                      ratedBookings.has(booking.id) && (
-                      <View style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                        <Ionicons name="checkmark-circle" size={15} color="#F59E0B" />
-                        <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 13, color: colors.textMuted }}>
-                          Rating submitted — thank you!
-                        </Text>
-                      </View>
-                    )}
-
-                  </View>
-                </View>
-              )
-            })
+              {cancelled.length > 0 && (
+                <>
+                  {renderListSectionHeader('Cancelled', cancelled.length)}
+                  {cancelled.map(item => renderCompactCard(item, false))}
+                </>
+              )}
+            </>
           )}
-          <View style={{ height: 80 }} />
+          <View style={{ height: 120 }} />
         </ScrollView>
       )}
 
-      {/* ── Rating modal ── */}
       <RatingModal
         visible={ratingBooking !== null}
         bookingId={ratingBooking?.id ?? ''}
@@ -378,7 +483,6 @@ export default function AppointmentsScreen() {
           setRatingBooking(null)
         }}
       />
-
     </View>
   )
 }

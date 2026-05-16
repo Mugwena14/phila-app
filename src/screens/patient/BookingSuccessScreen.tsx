@@ -6,21 +6,6 @@ import { useThemeStore } from '../../store/themeStore'
 import { spacing, radius } from '../../theme/spacing'
 
 
-const PREP_TIPS: Record<string, { tip: string; icon: string }> = {
-  'Cardiologist':         { tip: 'Avoid caffeine 2 hours before. Wear comfortable, loose-fitting clothing.',                icon: '❤️' },
-  'General Practitioner': { tip: 'Bring a list of any current medications and their dosages.',                              icon: '📋' },
-  'Pediatrician':         { tip: "Bring your child's vaccination record and any previous medical reports.",                 icon: '👶' },
-  'Dermatologist':        { tip: 'Arrive with clean skin — no makeup or heavy creams on the area being examined.',          icon: '🧴' },
-  'Neurologist':          { tip: 'Write down your symptoms and when they started before your appointment.',                 icon: '🧠' },
-  'Dentist':              { tip: 'Brush and floss before your visit. Avoid eating 2 hours before if sedation is possible.', icon: '🦷' },
-  'Orthopedic Surgeon':   { tip: 'Wear loose, comfortable clothing for easy access to the affected area.',                 icon: '🦴' },
-  'Gynecologist':         { tip: 'Schedule mid-cycle if possible. Avoid intercourse 24 hours before.',                     icon: '🌸' },
-  'Psychiatrist':         { tip: 'Write down how you have been feeling and any triggers you have noticed.',                 icon: '🧘' },
-  'Ophthalmologist':      { tip: 'Switch from contacts to glasses 24 hours before your appointment.',                      icon: '👁️' },
-  'Radiologist':          { tip: 'Wear comfortable clothing without metal. Remove jewellery before your visit.',           icon: '🔬' },
-  'Oncologist':           { tip: 'Bring someone with you if possible. Write down all questions before your visit.',        icon: '💙' },
-}
-
 export default function BookingSuccessScreen({ navigation, route }: any) {
   const { colors } = useThemeStore()
   const { booking } = route.params
@@ -150,30 +135,6 @@ export default function BookingSuccessScreen({ navigation, route }: any) {
           </Text>
         </TouchableOpacity>
 
-        {/* Specialty prep tip */}
-{booking.specialty && PREP_TIPS[booking.specialty] && (
-  <View style={{
-    backgroundColor: colors.bgSurface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-    marginBottom: spacing.md,
-  }}>
-    <Text style={{ fontSize: 22 }}>{PREP_TIPS[booking.specialty].icon}</Text>
-    <View style={{ flex: 1 }}>
-      <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.text, marginBottom: 4 }}>
-        How to prepare
-      </Text>
-      <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 13, color: colors.textMuted, lineHeight: 20 }}>
-        {PREP_TIPS[booking.specialty].tip}
-      </Text>
-    </View>
-  </View>
-)}
 
         {/* WhatsApp note */}
         <View style={{ backgroundColor: '#128C7E15', borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: '#128C7E30', flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginBottom: spacing.xl }}>
