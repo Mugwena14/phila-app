@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useThemeStore } from '../../store/themeStore'
 import { doctorsApi } from '../../api/doctors'
-import { Doctor, Slot } from '../../types'
+import { Doctor, Slot, WorkingHour } from '../../types'
 import { spacing, radius } from '../../theme/spacing'
 import { Ionicons } from '@expo/vector-icons'
 import { ratingsApi, Rating } from '../../api/ratings'
@@ -23,22 +23,11 @@ import DoctorBookingPanel from './DoctorBookingPanel'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 
-// Placeholder practice images — swap these out when DB has real ones
-const PLACEHOLDER_IMAGES = [
-  'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1631815589968-fdb09a223b1e?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1666214280391-8ff5bd3c0bf0?auto=format&fit=crop&w=800&q=80',
-]
+const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-const OPENING_TIMES = [
-  { day: 'Monday',    hours: '08:30 - 17:00', open: true },
-  { day: 'Tuesday',   hours: '08:30 - 17:00', open: true },
-  { day: 'Wednesday', hours: '08:30 - 17:00', open: true },
-  { day: 'Thursday',  hours: '08:30 - 17:00', open: true },
-  { day: 'Friday',    hours: '08:30 - 17:00', open: true },
-  { day: 'Saturday',  hours: '08:30 - 13:00', open: true },
-  { day: 'Sunday',    hours: 'Closed',        open: false },
-]
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&w=800&q=80'
+
+const formatHour = (timeStr: string): string => timeStr.slice(0, 5)
 
 type Mode = 'profile' | 'booking'
 
@@ -48,11 +37,11 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
   const insets = useSafeAreaInsets()
   const bottomPad = Math.max(insets.bottom, 16)
 
-  const [doctor, setDoctor] = useState<Doctor | null>(null)
-  const [loading, setLoading] = useState<boolean>(true)
-  const [reviews, setReviews] = useState<Rating[]>([])
+  const [doctor, setDoctor]           = useState<Doctor | null>(null)
+  const [loading, setLoading]         = useState<boolean>(true)
+  const [reviews, setReviews]         = useState<Rating[]>([])
   const [activeImageIndex, setActiveImageIndex] = useState<number>(0)
-  const [mode, setMode] = useState<Mode>('profile')
+  const [mode, setMode]               = useState<Mode>('profile')
 
   useEffect(() => {
     const load = async (): Promise<void> => {
@@ -99,7 +88,17 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
     )
   }
 
-  // ── BOOKING MODE — render the panel ──
+  // Use real images — fallback to placeholder if none uploaded yet
+  const galleryImages = doctor.practice_images && doctor.practice_images.length > 0
+    ? doctor.practice_images
+    : [FALLBACK_IMAGE]
+
+  // Sort working hours Mon→Sun
+  const sortedHours = [...(doctor.working_hours || [])].sort((a, b) => a.day_of_week - b.day_of_week)
+
+  // Today's index (0=Monday ... 6=Sunday)
+  const todayIndex = (new Date().getDay() + 6) % 7
+
   if (mode === 'booking') {
     return (
       <DoctorBookingPanel
@@ -110,7 +109,6 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
     )
   }
 
-  // ── PROFILE MODE ──
   return (
     <View style={{ flex: 1, backgroundColor: colors.bgBase }}>
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -124,7 +122,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             onScroll={handleImageScroll}
             scrollEventThrottle={16}
           >
-            {PLACEHOLDER_IMAGES.map((uri, i) => (
+            {galleryImages.map((uri, i) => (
               <Image
                 key={i}
                 source={{ uri }}
@@ -135,53 +133,41 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
           </ScrollView>
 
           {/* Pagination dots */}
-          <View style={{
-            position: 'absolute',
-            bottom: spacing.md,
-            alignSelf: 'center',
-            flexDirection: 'row',
-            gap: 6,
-            backgroundColor: 'rgba(0,0,0,0.4)',
-            paddingHorizontal: 10,
-            paddingVertical: 5,
-            borderRadius: 999,
-          }}>
-            {PLACEHOLDER_IMAGES.map((_, i) => (
-              <View
-                key={i}
-                style={{
+          {galleryImages.length > 1 && (
+            <View style={{
+              position: 'absolute', bottom: spacing.md, alignSelf: 'center',
+              flexDirection: 'row', gap: 6,
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+            }}>
+              {galleryImages.map((_, i) => (
+                <View key={i} style={{
                   width: i === activeImageIndex ? 16 : 6,
-                  height: 6,
-                  borderRadius: 3,
+                  height: 6, borderRadius: 3,
                   backgroundColor: i === activeImageIndex ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
-                }}
-              />
-            ))}
-          </View>
+                }} />
+              ))}
+            </View>
+          )}
 
           {/* Image counter */}
-          <View style={{
-            position: 'absolute',
-            bottom: spacing.md,
-            right: spacing.md,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            borderRadius: 999,
-          }}>
-            <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#FFFFFF' }}>
-              {activeImageIndex + 1}/{PLACEHOLDER_IMAGES.length}
-            </Text>
-          </View>
+          {galleryImages.length > 1 && (
+            <View style={{
+              position: 'absolute', bottom: spacing.md, right: spacing.md,
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999,
+            }}>
+              <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: '#FFFFFF' }}>
+                {activeImageIndex + 1}/{galleryImages.length}
+              </Text>
+            </View>
+          )}
 
           {/* Top action buttons */}
           <View style={{
-            position: 'absolute',
-            top: insets.top + 8,
-            left: spacing.md,
-            right: spacing.md,
-            flexDirection: 'row',
-            justifyContent: 'space-between',
+            position: 'absolute', top: insets.top + 8,
+            left: spacing.md, right: spacing.md,
+            flexDirection: 'row', justifyContent: 'space-between',
           }}>
             <TouchableOpacity
               onPress={() => navigation.goBack()}
@@ -189,7 +175,6 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             >
               <Ionicons name="arrow-back" size={18} color="#000" />
             </TouchableOpacity>
-
             <View style={{ flexDirection: 'row', gap: spacing.sm }}>
               <TouchableOpacity style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 4, elevation: 4 }}>
                 <Ionicons name="share-outline" size={18} color="#000" />
@@ -203,7 +188,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
 
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
 
-          {/* ── NAME + RATING + LOCATION ── */}
+          {/* ── NAME + RATING ── */}
           <Text style={{ fontFamily: 'Syne_800ExtraBold', fontSize: 26, color: colors.text, marginBottom: 6 }}>
             {doctor.practice_name}
           </Text>
@@ -246,8 +231,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
               backgroundColor: colors.primaryBg, borderRadius: radius.pill,
               paddingHorizontal: 12, paddingVertical: 5,
               borderWidth: 1, borderColor: colors.primaryBorder,
-              alignSelf: 'flex-start',
-              marginBottom: spacing.lg,
+              alignSelf: 'flex-start', marginBottom: spacing.lg,
             }}>
               <Ionicons name="shield-checkmark" size={13} color={colors.primary} />
               <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 11, color: colors.primary }}>
@@ -275,9 +259,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
           {/* ── ABOUT ── */}
           {doctor.bio && (
             <View style={{ marginBottom: spacing.xl }}>
-              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text, marginBottom: spacing.sm }}>
-                About
-              </Text>
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text, marginBottom: spacing.sm }}>About</Text>
               <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 14, color: colors.textMuted, lineHeight: 22 }}>
                 {doctor.bio}
               </Text>
@@ -291,7 +273,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {doctor.medical_aids.length > 0 ? (
-                doctor.medical_aids.map((aid) => (
+                doctor.medical_aids.map(aid => (
                   <View key={aid} style={{ backgroundColor: colors.primaryBg, borderRadius: radius.pill, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: colors.primaryBorder }}>
                     <Text style={{ fontFamily: 'DMSans_500Medium', fontSize: 12, color: colors.primary }}>{aid}</Text>
                   </View>
@@ -302,39 +284,46 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             </View>
           </View>
 
-          {/* ── OPENING TIMES ── */}
-          <View style={{ marginBottom: spacing.xl }}>
-            <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text, marginBottom: spacing.md }}>
-              Opening times
-            </Text>
-            {OPENING_TIMES.map((row, i) => {
-              const todayIdx = (new Date().getDay() + 6) % 7 // Mon=0 ... Sun=6
-              const isToday = todayIdx === i
-              return (
-                <View key={row.day} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: spacing.sm }}>
-                  <View style={{
-                    width: 10, height: 10, borderRadius: 5,
-                    backgroundColor: row.open ? '#10B981' : colors.border,
-                  }} />
-                  <Text style={{
-                    flex: 1,
-                    fontFamily: isToday ? 'Syne_700Bold' : 'DMSans_400Regular',
-                    fontSize: 14,
-                    color: row.open ? colors.text : colors.textFaint,
-                  }}>
-                    {row.day}
-                  </Text>
-                  <Text style={{
-                    fontFamily: isToday ? 'Syne_700Bold' : 'DMSans_400Regular',
-                    fontSize: 14,
-                    color: row.open ? colors.text : colors.textFaint,
-                  }}>
-                    {row.hours}
-                  </Text>
-                </View>
-              )
-            })}
-          </View>
+          {/* ── OPENING TIMES — real data from backend ── */}
+          {sortedHours.length > 0 && (
+            <View style={{ marginBottom: spacing.xl }}>
+              <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text, marginBottom: spacing.md }}>
+                Opening times
+              </Text>
+              {sortedHours.map((wh, i) => {
+                const isToday = wh.day_of_week === todayIndex
+                return (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, gap: spacing.sm }}>
+                    <View style={{
+                      width: 10, height: 10, borderRadius: 5,
+                      backgroundColor: wh.is_active ? '#10B981' : colors.border,
+                    }} />
+                    <Text style={{
+                      flex: 1,
+                      fontFamily: isToday ? 'Syne_700Bold' : 'DMSans_400Regular',
+                      fontSize: 14,
+                      color: wh.is_active ? colors.text : colors.textFaint,
+                    }}>
+                      {DAY_NAMES[wh.day_of_week]}
+                      {isToday && (
+                        <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 11, color: colors.primary }}> (today)</Text>
+                      )}
+                    </Text>
+                    <Text style={{
+                      fontFamily: isToday ? 'Syne_700Bold' : 'DMSans_400Regular',
+                      fontSize: 14,
+                      color: wh.is_active ? colors.text : colors.textFaint,
+                    }}>
+                      {wh.is_active
+                        ? `${formatHour(wh.start_time)} - ${formatHour(wh.end_time)}`
+                        : 'Closed'
+                      }
+                    </Text>
+                  </View>
+                )
+              })}
+            </View>
+          )}
 
           {/* ── PATIENT REVIEWS ── */}
           {reviews.length > 0 && (
@@ -343,7 +332,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
                 Patient reviews
               </Text>
               <View style={{ gap: spacing.sm }}>
-                {reviews.slice(0, 5).map((review) => (
+                {reviews.slice(0, 5).map(review => (
                   <View key={review.id} style={{ backgroundColor: colors.bgSurface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.md }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 6 }}>
                       {[1, 2, 3, 4, 5].map(star => (
@@ -368,7 +357,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
             </View>
           )}
 
-          {/* ── MAP PREVIEW ── */}
+          {/* ── LOCATION ── */}
           <View style={{ marginBottom: spacing.xl }}>
             <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 18, color: colors.text, marginBottom: spacing.md }}>
               Location
@@ -378,7 +367,6 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
               activeOpacity={0.85}
               style={{ borderRadius: radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgSurface }}
             >
-              {/* Static OSM map preview — no API key needed */}
               {doctor.latitude && doctor.longitude ? (
                 <Image
                   source={{
@@ -401,9 +389,7 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
                 </Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Ionicons name="navigate-outline" size={14} color={colors.primary} />
-                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.primary }}>
-                    Get directions
-                  </Text>
+                  <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 13, color: colors.primary }}>Get directions</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -415,16 +401,11 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
 
       {/* ── STICKY BOOK NOW ── */}
       <View style={{
-        position: 'absolute',
-        bottom: 0, left: 0, right: 0,
+        position: 'absolute', bottom: 0, left: 0, right: 0,
         backgroundColor: colors.bgSurface,
-        borderTopWidth: 1,
-        borderTopColor: colors.borderStrong,
-        padding: spacing.lg,
-        paddingBottom: bottomPad + spacing.md,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.md,
+        borderTopWidth: 1, borderTopColor: colors.borderStrong,
+        padding: spacing.lg, paddingBottom: bottomPad + spacing.md,
+        flexDirection: 'row', alignItems: 'center', gap: spacing.md,
       }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: 'DMSans_400Regular', fontSize: 12, color: colors.textMuted }}>
@@ -436,19 +417,9 @@ export default function DoctorProfileScreen({ navigation, route }: any) {
         </View>
         <TouchableOpacity
           onPress={() => setMode('booking')}
-          style={{
-            backgroundColor: colors.text,
-            borderRadius: radius.pill,
-            paddingVertical: 16,
-            paddingHorizontal: 32,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-          }}
+          style={{ backgroundColor: colors.text, borderRadius: radius.pill, paddingVertical: 16, paddingHorizontal: 32, flexDirection: 'row', alignItems: 'center', gap: 8 }}
         >
-          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.bgBase }}>
-            Book now
-          </Text>
+          <Text style={{ fontFamily: 'Syne_700Bold', fontSize: 15, color: colors.bgBase }}>Book now</Text>
           <Ionicons name="arrow-forward" size={16} color={colors.bgBase} />
         </TouchableOpacity>
       </View>

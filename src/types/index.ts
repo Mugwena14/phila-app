@@ -10,6 +10,13 @@ export interface User {
   created_at?: string
 }
 
+export interface WorkingHour {
+  day_of_week: number  // 0=Monday ... 6=Sunday
+  is_active: boolean
+  start_time: string   // "08:00:00"
+  end_time: string     // "17:00:00"
+}
+
 export interface Doctor {
   id: string
   user_id: string
@@ -33,7 +40,10 @@ export interface Doctor {
   total_reviews: number
   created_at: string
   practice_images: string[]
+  working_hours: WorkingHour[]
 }
+
+
 
 export interface Slot {
   id: string
