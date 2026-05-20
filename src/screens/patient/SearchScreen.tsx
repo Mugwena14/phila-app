@@ -135,7 +135,7 @@ export default function SearchScreen({ navigation, route }: any) {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
 
   const sheetRef = useRef<BottomSheet>(null)
-  const snapPoints = useMemo(() => ['18%', '55%', '92%'], [])
+  const snapPoints = useMemo(() => ['18%', '40%', '80%'], [])
 
   const [symptoms, setSymptoms] = useState<string>('')
   const [triageLoading, setTriageLoading] = useState<boolean>(false)
@@ -604,6 +604,7 @@ return (
             placeholderTextColor={colors.textFaint}
             value={query}
             onChangeText={handleQueryChange}
+            onFocus={() => sheetRef.current?.snapToIndex(1)}
             returnKeyType="search"
           />
           {query.length > 0 ? (
@@ -688,14 +689,15 @@ return (
         <Ionicons name="navigate" size={18} color={colors.primary} />
       </TouchableOpacity>
 
-      <BottomSheet
-        ref={sheetRef}
-        index={0}
-        snapPoints={snapPoints}
-        backdropComponent={renderBackdrop}
-        backgroundStyle={{ backgroundColor: colors.bgBase }}
-        handleIndicatorStyle={{ backgroundColor: colors.border, width: 40 }}
-      >
+        <BottomSheet
+            ref={sheetRef}
+            index={0}
+            snapPoints={snapPoints}
+            backdropComponent={renderBackdrop}
+            backgroundStyle={{ backgroundColor: colors.bgBase }}
+            handleIndicatorStyle={{ backgroundColor: colors.border, width: 40 }}
+            topInset={insets.top + 120}
+          >
         {/* ── Sheet header ── */}
         <View style={{
           paddingHorizontal: spacing.lg,
